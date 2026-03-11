@@ -1,35 +1,35 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import { Text } from 'react-native';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function Icon({ label }: { label: string }) {
+  return <Text style={{ fontSize: 20 }}>{label}</Text>;
+}
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarStyle: {
+          backgroundColor: '#0f0f18',
+          borderTopColor: '#2a2a40',
+          height: 60,
+          paddingBottom: 8,
+        },
+        tabBarActiveTintColor: '#7c6fff',
+        tabBarInactiveTintColor: '#555',
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="search"
+        options={{ title: '검색', tabBarIcon: () => <Icon label="🔍" /> }} />
+      <Tabs.Screen name="map"
+        options={{ title: '맛집', tabBarIcon: () => <Icon label="🗺️" /> }} />
+      <Tabs.Screen name="index"
+        options={{ title: 'AI홈', tabBarIcon: () => <Icon label="✦" /> }} />
+      <Tabs.Screen name="community"
+        options={{ title: '커뮤니티', tabBarIcon: () => <Icon label="💬" /> }} />
+      <Tabs.Screen name="timetable"
+        options={{ title: '시간표', tabBarIcon: () => <Icon label="📅" /> }} />
     </Tabs>
   );
 }

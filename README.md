@@ -1,50 +1,62 @@
-# Welcome to your Expo app 👋
+# Uni - AI University Companion App 🎓
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+대학생을 위한 AI 기반 올인원 캠퍼스 라이프 앱 **Uni**입니다.
+이 프로젝트는 React Native와 Expo를 사용하여 개발되었습니다.
 
-## Get started
+## 📱 프로젝트 소개 (Project Description)
 
-1. Install dependencies
+**Uni**는 대학생들의 학교 생활을 돕기 위해 다음과 같은 기능을 제공합니다:
+
+*   **🤖 AI 홈 (AI Home)**: 
+    *   AI 챗봇 'Uni'와 대화하여 맛집 추천, 교수님 평가, 여행 계획 등 다양한 정보를 얻을 수 있습니다.
+    *   실시간 날씨 및 등하교 버스(교통) 정보를 제공합니다.
+*   **🗺️ 맛집 지도 (Map/Restaurants)**: 학교 주변 맛집 정보를 지도에서 확인하고 추천받을 수 있습니다.
+*   **📅 시간표 (Timetable)**: 수업 시간표를 관리할 수 있습니다.
+*   **💬 커뮤니티 (Community)**: 학우들과 소통할 수 있는 익명/실명 커뮤니티 공간입니다.
+*   **🔍 검색 (Search)**: 학교 생활에 필요한 정보를 통합 검색할 수 있습니다.
+
+## 🛠️ 기술 스택 (Tech Stack)
+
+*   **Framework**: [Expo](https://expo.dev/) (React Native)
+*   **Language**: TypeScript / JavaScript
+*   **Routing**: Expo Router
+*   **Navigation**: React Navigation (Bottom Tabs)
+
+## 🚀 실행 방법 (Getting Started)
+
+1. **의존성 설치 (Install dependencies)**
 
    ```bash
    npm install
    ```
 
-2. Start the app
+2. **앱 실행 (Start the app)**
 
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+   실행 후 나타나는 QR 코드를 모바일의 Expo Go 앱으로 스캔하거나, 에뮬레이터(Android/iOS)에서 실행할 수 있습니다.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📂 프로젝트 구조 (Project Structure)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+uni-app/
+├── app/
+│   ├── (tabs)/          # 하단 탭 내비게이션 화면들
+│   │   ├── index.tsx    # AI 홈 화면
+│   │   ├── map.tsx      # 맛집 지도 화면
+│   │   ├── community.tsx # 커뮤니티 화면
+│   │   ├── timetable.tsx # 시간표 화면
+│   │   ├── search.tsx   # 검색 화면
+│   │   └── _layout.tsx  
+│   ├── _layout.tsx      # 루트 레이아웃
+│   └── ...
+├── components/          # 재사용 가능한 컴포넌트
+├── assets/              # 이미지 및 리소스
+└── ...
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🔗 저장소 (Repository)
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+[https://github.com/dnf98083-cmyk/projackt](https://github.com/dnf98083-cmyk/projackt)
