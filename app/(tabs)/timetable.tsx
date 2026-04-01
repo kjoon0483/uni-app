@@ -1,7 +1,9 @@
 import * as ImagePicker from 'expo-image-picker';
 import { geminiVision } from '@/lib/gemini';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/lib/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/lib/supabase';
 import {
   ActivityIndicator,
   Modal,
@@ -57,6 +59,30 @@ export default function TimetableScreen() {
   const [addModal, setAddModal] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [storageLoaded, setStorageLoaded] = useState(false);
+
+  // 유저 ID 로드 + 저장된 시간표 불러오기
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data?.user?.id ?? null;
+      setUserId(uid);
+      if (uid) {
+        AsyncStorage.getItem(`timetable_${uid}`).then(val => {
+          if (val) setClasses(JSON.parse(val));
+          setStorageLoaded(true);
+        });
+      } else {
+        setStorageLoaded(true);
+      }
+    });
+  }, []);
+
+  // 시간표 변경 시 자동 저장
+  useEffect(() => {
+    if (!storageLoaded || !userId) return;
+    AsyncStorage.setItem(`timetable_${userId}`, JSON.stringify(classes));
+  }, [classes, storageLoaded, userId]);
 
   const [form, setForm] = useState({
     name: '', room: '', day: 0,
@@ -119,8 +145,9 @@ export default function TimetableScreen() {
         ...c,
         color: CLASS_COLORS[i % CLASS_COLORS.length],
       })));
-    } catch {
-      setAnalyzeError('분석 중 오류가 발생했어요. 다시 시도해주세요.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setAnalyzeError(`분석 오류: ${msg}`);
     } finally {
       setAnalyzing(false);
     }
