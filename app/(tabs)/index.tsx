@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
 import type { ChatSession, GenerativeModel } from '@google/generative-ai';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,7 +17,26 @@ import {
   View,
 } from 'react-native';
 
-type Message = { role: 'user' | 'ai'; text: string };
+type Message = { role: 'user' | 'ai'; text: string; mapCategory?: string };
+
+const MAP_KEYWORDS: { keywords: string[]; category: string }[] = [
+  { keywords: ['한식', '한국음식', '국밥', '찌개', '비빔밥', '설렁탕'], category: '한식' },
+  { keywords: ['중식', '중국집', '짜장', '짬뽕', '탕수육'], category: '중식' },
+  { keywords: ['일식', '초밥', '스시', '라멘', '돈카츠', '우동'], category: '일식' },
+  { keywords: ['양식', '파스타', '피자', '스테이크', '버거'], category: '양식' },
+  { keywords: ['카페', '커피', '디저트', '케이크', '라떼'], category: '카페' },
+  { keywords: ['술집', '포차', '이자카야', '맥주', '소주'], category: '술집' },
+  { keywords: ['분식', '떡볶이', '순대', '튀김', '김밥'], category: '분식' },
+  { keywords: ['맛집', '식당', '음식점', '밥집', '먹을'], category: '전체' },
+];
+
+function detectMapCategory(text: string): string | null {
+  const lower = text.toLowerCase().replace(/\s+/g, '');
+  for (const { keywords, category } of MAP_KEYWORDS) {
+    if (keywords.some(k => lower.includes(k.replace(/\s+/g, '')))) return category;
+  }
+  return null;
+}
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -73,7 +92,8 @@ export default function HomeScreen() {
         : text;
       const result = await getChat().sendMessage(prompt);
       const reply = result.response.text();
-      setMessages(prev => [...prev, { role: 'ai', text: reply }]);
+      const mapCategory = detectMapCategory(text) ?? detectMapCategory(reply) ?? undefined;
+      setMessages(prev => [...prev, { role: 'ai', text: reply, mapCategory }]);
     } catch (e: any) {
       const msg = e?.message?.includes('API_KEY') ? 'API 키가 올바르지 않아요.' :
         e?.message?.includes('quota') ? '오늘 사용량을 초과했어요.' :
@@ -129,6 +149,13 @@ export default function HomeScreen() {
             <Text style={[styles.bubbleText, { color: m.role === 'user' ? '#fff' : colors.text }]}>
               {m.text}
             </Text>
+            {m.role === 'ai' && m.mapCategory && (
+              <TouchableOpacity
+                style={styles.mapBtn}
+                onPress={() => router.push({ pathname: '/(tabs)/map', params: { category: m.mapCategory } })}>
+                <Text style={styles.mapBtnText}>🗺️ 지도에서 보기</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))}
         {loading && (
@@ -160,6 +187,9 @@ export default function HomeScreen() {
           placeholder={schoolName ? `${schoolName} 맛집, 학교생활 등 뭐든 물어봐...` : '학교 맛집, 학교생활 등 뭐든 물어봐...'}
           placeholderTextColor={colors.subText}
           multiline
+          blurOnSubmit
+          onSubmitEditing={sendMessage}
+          returnKeyType="send"
         />
         <TouchableOpacity
           style={[styles.sendBtn, loading && styles.sendBtnDisabled]}
@@ -218,4 +248,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center', marginLeft: 8,
   },
   sendBtnDisabled: { opacity: 0.5 },
+  mapBtn: {
+    marginTop: 8, backgroundColor: '#7c6fff',
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
+  mapBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 });

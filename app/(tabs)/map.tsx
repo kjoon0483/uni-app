@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
   Linking,
@@ -669,6 +670,7 @@ function PlaceDetailSheet({
 // ── 화면 ────────────────────────────────────────────────────
 export default function MapScreen() {
   const { colors } = useTheme();
+  const { category } = useLocalSearchParams<{ category?: string }>();
   const webViewRef = useRef<WebView>(null);
   const iframeRef = useRef<any>(null);
   const placesRef = useRef<Place[]>([]);
@@ -689,6 +691,27 @@ export default function MapScreen() {
 
   // places 최신값을 ref에 유지 (웹 메시지 핸들러 stale closure 방지)
   useEffect(() => { placesRef.current = places; }, [places]);
+
+  // AI에서 카테고리 파라미터로 넘어온 경우 자동 검색
+  useEffect(() => {
+    if (!category) return;
+    const found = CATEGORIES.find(c => c.label === category);
+    if (found) setSelectedCat(found);
+
+    supabase.auth.getUser().then(async ({ data }) => {
+      const meta = data?.user?.user_metadata ?? {};
+      const name = (meta.school_name ?? '').trim();
+      if (!name) return;
+      setSchoolQuery(name);
+      try {
+        const loc = await searchSchoolLocation(name);
+        setLocation(loc);
+        const cat = found ?? CATEGORIES[0];
+        await loadPlaces(loc.lat, loc.lng, cat, name);
+      } catch {}
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
 
   const postToMap = useCallback((msg: object) => {
     if (Platform.OS === 'web') {

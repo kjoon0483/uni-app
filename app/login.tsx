@@ -107,6 +107,7 @@ export default function LoginScreen() {
                   placeholderTextColor="#44445a"
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  returnKeyType="next"
                 />
               </View>
 
@@ -119,6 +120,8 @@ export default function LoginScreen() {
                   placeholder="비밀번호를 입력하세요"
                   placeholderTextColor="#44445a"
                   secureTextEntry
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
                 />
               </View>
 
