@@ -744,11 +744,27 @@ export default function MapScreen() {
     `);
   }, []);
 
+  // 마운트 시 프로필 학교로 자동 검색
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       const meta = data?.user?.user_metadata ?? {};
-      if (meta.school_name) setSchoolQuery(meta.school_name);
+      const name = (meta.school_name ?? '').trim();
+      if (!name) return;
+      setSchoolQuery(name);
+      setLoading(true);
+      setError('');
+      try {
+        const loc = await searchSchoolLocation(name);
+        setLocation(loc);
+        const results = await fetchPlaces(loc.lat, loc.lng, CATEGORIES[0], name);
+        setPlaces(results);
+      } catch {
+        // 자동 검색 실패 시 무시 (사용자가 수동 검색 가능)
+      } finally {
+        setLoading(false);
+      }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 웹: iframe → React 메시지 수신 (마커 탭 + kakaoReady 처리)
@@ -871,21 +887,14 @@ export default function MapScreen() {
 
       {/* 검색바 + 카테고리 */}
       <View style={[styles.topSection, { backgroundColor: colors.bg }]}>
-        <View style={styles.searchRow}>
-          <TextInput
-            style={[styles.searchInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-            placeholder="학교 이름 검색 (예: 신구대학교)"
-            placeholderTextColor={colors.subText}
-            value={schoolQuery}
-            onChangeText={setSchoolQuery}
-            onSubmitEditing={search}
-            returnKeyType="search"
-          />
-          <TouchableOpacity style={styles.searchBtn} onPress={search} disabled={loading}>
-            {loading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={styles.searchBtnText}>검색</Text>}
-          </TouchableOpacity>
+        <View style={[styles.searchRow, { alignItems: 'center' }]}>
+          <View style={[styles.schoolBadge, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}>
+            <Text style={styles.schoolEmoji}>🏫</Text>
+            <Text style={[styles.schoolName, { color: colors.text }]} numberOfLines={1}>
+              {schoolQuery || '학교 정보 없음'}
+            </Text>
+            {loading && <ActivityIndicator color="#7c6fff" size="small" style={{ marginLeft: 8 }} />}
+          </View>
         </View>
 
         {/* 음식점 이름 검색 */}
@@ -1061,6 +1070,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minWidth: 60,
   },
   searchBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  schoolBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 11, gap: 8,
+  },
+  schoolEmoji: { fontSize: 16 },
+  schoolName: { fontSize: 14, fontWeight: '600', flex: 1 },
 
   catScroll: { flexGrow: 0, marginBottom: 10 },
   catChip: {
