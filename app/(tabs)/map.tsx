@@ -50,6 +50,7 @@ type Place = {
   id: string;
   name: string;
   categorySimple: string;
+  categoryDetail: string;
   address: string;
   phone: string;
   lat: number;
@@ -87,6 +88,30 @@ const getCategorySimple = (categoryName: string, code: string): string => {
   if (n.includes('술집') || n.includes('주점') || n.includes('호프')) return '술집';
   if (n.includes('분식')) return '분식';
   return '기타';
+};
+
+// 카카오 category_name의 마지막 세그먼트를 상세 카테고리로 추출
+// 예: "음식점 > 카페 > 커피전문점" → "커피전문점"
+//     "음식점 > 한식 > 육류,고기요리" → "육류·고기"
+const SKIP_SEGMENTS = new Set(['음식점', '카페', '식품', '푸드코트']);
+const DETAIL_CLEAN: [RegExp, string][] = [
+  [/,/g, '·'],
+  [/요리$/,''],
+  [/전문점$/,''],
+];
+const getCategoryDetail = (categoryName: string, code: string): string => {
+  if (!categoryName) return '';
+  const parts = categoryName.split('>').map(s => s.trim()).filter(Boolean);
+  // 뒤에서부터 의미있는 세그먼트 찾기
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    if (p && !SKIP_SEGMENTS.has(p)) {
+      let label = p;
+      for (const [re, rep] of DETAIL_CLEAN) label = label.replace(re, rep);
+      return label.trim();
+    }
+  }
+  return code === 'CE7' ? '카페' : parts[parts.length - 1] ?? '';
 };
 
 // ── 웹: Nominatim 학교 검색 ──────────────────────────────────
@@ -137,6 +162,20 @@ const fetchPlacesWeb = async (lat: number, lng: number, cat: typeof CATEGORIES[0
     return '한식';
   };
 
+  const getDetailCategory = (el: any): string => {
+    const amenity = el.tags?.amenity ?? '';
+    const cuisine = (el.tags?.cuisine ?? '').toLowerCase();
+    if (amenity === 'fast_food') return '패스트푸드';
+    if (amenity === 'bar') return '바';
+    if (amenity === 'pub') return '펍';
+    if (cuisine.includes('sushi')) return '초밥·롤';
+    if (cuisine.includes('ramen')) return '라멘';
+    if (cuisine.includes('pizza')) return '피자';
+    if (cuisine.includes('burger')) return '버거';
+    if (cuisine.includes('italian')) return '이탈리안';
+    return '';
+  };
+
   const all: Place[] = (data.elements ?? [])
     .map((el: any) => {
       const center = el.center ?? el;
@@ -144,6 +183,7 @@ const fetchPlacesWeb = async (lat: number, lng: number, cat: typeof CATEGORIES[0
         id: String(el.id),
         name: el.tags?.['name:ko'] || el.tags?.name || '',
         categorySimple: getSimpleCategory(el),
+        categoryDetail: getDetailCategory(el),
         address: el.tags?.['addr:full'] || el.tags?.['addr:street'] || '',
         phone: el.tags?.phone || '',
         lat: center.lat,
@@ -165,6 +205,7 @@ const mapDocs = (docs: any[], code: string): Place[] =>
     id: d.id,
     name: d.place_name,
     categorySimple: getCategorySimple(d.category_name ?? '', code),
+    categoryDetail: getCategoryDetail(d.category_name ?? '', code),
     address: d.road_address_name || d.address_name || '',
     phone: d.phone ?? '',
     lat: parseFloat(d.y),
@@ -184,28 +225,33 @@ const searchSchoolKakao = async (query: string) => {
   return { lat: parseFloat(d.y), lng: parseFloat(d.x), name: d.place_name };
 };
 
-const fetchPlacesKakao = async (lat: number, lng: number, cat: typeof CATEGORIES[0]): Promise<Place[]> => {
+// 카테고리별 키워드 검색어
+const CAT_KEYWORD: Record<string, string> = {
+  전체: '맛집', 한식: '한식', 중식: '중식', 일식: '일식',
+  양식: '양식', 카페: '카페', 술집: '술집', 분식: '분식',
+};
+
+const fetchPlacesKakao = async (lat: number, lng: number, cat: typeof CATEGORIES[0], schoolName: string): Promise<Place[]> => {
   const h = kakaoHeaders();
+  const base = `x=${lng}&y=${lat}&radius=2000&size=20`;
+  const kw = (q: string, code?: string) =>
+    fetch(
+      `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}${code ? `&category_group_code=${code}` : ''}&${base}`,
+      { headers: h }
+    ).then(r => r.json());
+
+  const keyword = CAT_KEYWORD[cat.label] ?? cat.label;
+  const query = `${schoolName} ${keyword}`;
+
   if (cat.label === '전체') {
     const [food, cafe] = await Promise.all([
-      fetch(`https://dapi.kakao.com/v2/local/search/category.json?category_group_code=FD6&x=${lng}&y=${lat}&radius=1000&size=15`, { headers: h }).then(r => r.json()),
-      fetch(`https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x=${lng}&y=${lat}&radius=1000&size=15`, { headers: h }).then(r => r.json()),
+      kw(`${schoolName} 맛집`, 'FD6'),
+      kw(`${schoolName} 카페`, 'CE7'),
     ]);
     return [...mapDocs(food.documents ?? [], 'FD6'), ...mapDocs(cafe.documents ?? [], 'CE7')];
   }
-  if ('keyword' in cat && cat.keyword) {
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(cat.keyword!)}&category_group_code=${cat.code}&x=${lng}&y=${lat}&radius=1000&size=15`,
-      { headers: h }
-    );
-    const data = await res.json();
-    return mapDocs(data.documents ?? [], cat.code);
-  }
-  const res = await fetch(
-    `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=${cat.code}&x=${lng}&y=${lat}&radius=1000&size=15`,
-    { headers: h }
-  );
-  const data = await res.json();
+
+  const data = await kw(query, cat.code);
   return mapDocs(data.documents ?? [], cat.code);
 };
 
@@ -213,8 +259,102 @@ const fetchPlacesKakao = async (lat: number, lng: number, cat: typeof CATEGORIES
 const searchSchoolLocation = (query: string) =>
   Platform.OS === 'web' ? searchSchoolWeb(query) : searchSchoolKakao(query);
 
-const fetchPlaces = (lat: number, lng: number, cat: typeof CATEGORIES[0]) =>
-  Platform.OS === 'web' ? fetchPlacesWeb(lat, lng, cat) : fetchPlacesKakao(lat, lng, cat);
+const fetchPlaces = (lat: number, lng: number, cat: typeof CATEGORIES[0], schoolName: string) =>
+  Platform.OS === 'web' ? fetchPlacesWeb(lat, lng, cat) : fetchPlacesKakao(lat, lng, cat, schoolName);
+
+// ── 웹: Leaflet 인터랙티브 지도 HTML ────────────────────────
+const makeLeafletHtml = () => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body,#map{width:100%;height:100%}
+    .leaflet-container{background:#f0ebe3}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    var CAT_COLORS=${JSON.stringify(CAT_COLORS)};
+    var CAT_EMOJIS=${JSON.stringify(CAT_EMOJIS)};
+
+    var map=L.map('map',{zoomControl:true}).setView([37.5665,126.9780],14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© OpenStreetMap'
+    }).addTo(map);
+
+    var markers=[];
+
+    function getColor(cat){return CAT_COLORS[cat]||CAT_COLORS['기타']||'#7c6fff';}
+    function getEmoji(cat){return CAT_EMOJIS[cat]||'🍽️';}
+
+    function makeIcon(p,selected){
+      var c=getColor(p.categorySimple);
+      var sz=selected?46:36;
+      var fs=selected?22:16;
+      var bw=selected?'3px':'2px';
+      var sh=selected?'0 4px 14px rgba(0,0,0,0.45)':'0 2px 8px rgba(0,0,0,0.28)';
+      var html='<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer">'
+        +'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+c
+        +';display:flex;align-items:center;justify-content:center;font-size:'+fs+'px'
+        +';box-shadow:'+sh+';border:'+bw+' solid rgba(255,255,255,0.9)">'+getEmoji(p.categorySimple)+'</div>'
+        +'<div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid '+c+';margin-top:-1px"></div>'
+        +'</div>';
+      return L.divIcon({html:html,className:'',iconSize:[sz,sz+9],iconAnchor:[Math.floor(sz/2),sz+9]});
+    }
+
+    function clearAll(){
+      markers.forEach(function(m){map.removeLayer(m.marker);});
+      markers=[];
+    }
+
+    function handleTap(id){
+      markers.forEach(function(m){
+        m.marker.setIcon(makeIcon(m.p,m.id===id));
+        m.marker.setZIndexOffset(m.id===id?1000:0);
+      });
+      window.parent.postMessage(JSON.stringify({type:'tap',id:id}),'*');
+    }
+
+    function load(places){
+      clearAll();
+      var bounds=[];
+      places.forEach(function(p){
+        var m=L.marker([p.lat,p.lng],{icon:makeIcon(p,false)});
+        (function(pid){m.on('click',function(){handleTap(pid);});})(p.id);
+        m.addTo(map);
+        markers.push({id:p.id,p:p,marker:m});
+        bounds.push([p.lat,p.lng]);
+      });
+      if(bounds.length>0) map.fitBounds(bounds,{padding:[30,30],maxZoom:16});
+    }
+
+    function selectPin(id){
+      markers.forEach(function(m){
+        m.marker.setIcon(makeIcon(m.p,m.id===id));
+        m.marker.setZIndexOffset(m.id===id?1000:0);
+      });
+    }
+
+    function centerMap(lat,lng){map.setView([lat,lng],15);}
+
+    window.addEventListener('message',function(e){
+      try{
+        var d=JSON.parse(typeof e.data==='string'?e.data:JSON.stringify(e.data));
+        if(d.type==='center') centerMap(d.lat,d.lng);
+        if(d.type==='markers') load(d.places);
+        if(d.type==='select') selectPin(d.id);
+      }catch(err){}
+    });
+  </script>
+</body>
+</html>
+`;
 
 // ── Kakao Maps WebView HTML (커스텀 핀 마커) ─────────────────
 const makeMapHtml = (jsKey: string) => `
@@ -414,7 +554,9 @@ function PlaceDetailSheet({
                     {place.name}
                   </Text>
                   <View style={[sheetStyles.catBadge, { backgroundColor: catColor + '22' }]}>
-                    <Text style={[sheetStyles.catBadgeText, { color: catColor }]}>{place.categorySimple}</Text>
+                    <Text style={[sheetStyles.catBadgeText, { color: catColor }]}>
+                      {place.categoryDetail || place.categorySimple}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -528,6 +670,8 @@ function PlaceDetailSheet({
 export default function MapScreen() {
   const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
+  const iframeRef = useRef<any>(null);
+  const placesRef = useRef<Place[]>([]);
 
   const [schoolQuery, setSchoolQuery] = useState('');
   const [nameQuery, setNameQuery] = useState('');
@@ -541,8 +685,16 @@ export default function MapScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
 
   const mapHtml = makeMapHtml(KAKAO_JS_KEY);
+  const leafletHtml = makeLeafletHtml();
+
+  // places 최신값을 ref에 유지 (웹 메시지 핸들러 stale closure 방지)
+  useEffect(() => { placesRef.current = places; }, [places]);
 
   const postToMap = useCallback((msg: object) => {
+    if (Platform.OS === 'web') {
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify(msg), '*');
+      return;
+    }
     webViewRef.current?.injectJavaScript(`
       (function(){
         var e=new MessageEvent('message',{data:${JSON.stringify(JSON.stringify(msg))}});
@@ -558,9 +710,30 @@ export default function MapScreen() {
     });
   }, []);
 
+  // 웹: iframe → React 메시지 수신 (마커 탭 처리)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handler = (e: MessageEvent) => {
+      try {
+        const msg = JSON.parse(typeof e.data === 'string' ? e.data : JSON.stringify(e.data));
+        if (msg.type === 'tap') {
+          const place = placesRef.current.find(p => p.id === msg.id);
+          if (place) {
+            setSelectedPlace(place);
+            setSheetVisible(true);
+            postToMap({ type: 'select', id: place.id });
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!location) return;
-    loadPlaces(location.lat, location.lng, selectedCat);
+    loadPlaces(location.lat, location.lng, selectedCat, schoolQuery.trim());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCat]);
 
@@ -576,11 +749,11 @@ export default function MapScreen() {
     }
   }, [mapReady, places, postToMap]);
 
-  const loadPlaces = async (lat: number, lng: number, cat: typeof CATEGORIES[0]) => {
+  const loadPlaces = async (lat: number, lng: number, cat: typeof CATEGORIES[0], school: string) => {
     setLoading(true);
     setError('');
     try {
-      const results = await fetchPlaces(lat, lng, cat);
+      const results = await fetchPlaces(lat, lng, cat, school);
       setPlaces(results);
       if (mapReady) postToMap({ type: 'markers', places: results });
       if (results.length === 0) setError('해당 카테고리 결과가 없어요');
@@ -603,7 +776,7 @@ export default function MapScreen() {
       const loc = await searchSchoolLocation(schoolQuery.trim());
       setLocation(loc);
       if (mapReady) postToMap({ type: 'center', lat: loc.lat, lng: loc.lng });
-      await loadPlaces(loc.lat, loc.lng, selectedCat);
+      await loadPlaces(loc.lat, loc.lng, selectedCat, schoolQuery.trim());
     } catch (e: any) {
       setError(e.message || '검색 중 오류가 발생했어요');
       setLoading(false);
@@ -666,18 +839,17 @@ export default function MapScreen() {
         </ScrollView>
       </View>
 
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+
       {/* 지도 */}
       <View style={styles.mapWrap}>
         {Platform.OS === 'web' ? (
-          location ? React.createElement('iframe', {
-            src: `https://www.openstreetmap.org/export/embed.html?bbox=${location.lng - 0.006},${location.lat - 0.004},${location.lng + 0.006},${location.lat + 0.004}&layer=mapnik&marker=${location.lat},${location.lng}`,
+          React.createElement('iframe', {
+            ref: iframeRef,
+            srcDoc: leafletHtml,
             style: { width: '100%', height: '100%', border: 'none' },
-          }) : (
-            <View style={[styles.mapPlaceholder, { backgroundColor: colors.card }]}>
-              <Text style={styles.mapPlaceholderEmoji}>🗺️</Text>
-              <Text style={[styles.mapPlaceholderText, { color: colors.subText }]}>학교를 검색하면 지도가 나타나요</Text>
-            </View>
-          )
+            onLoad: () => setMapReady(true),
+          })
         ) : !KAKAO_JS_KEY ? (
           <View style={[styles.mapPlaceholder, { backgroundColor: colors.card }]}>
             <Text style={styles.mapPlaceholderEmoji}>🗺️</Text>
@@ -694,10 +866,7 @@ export default function MapScreen() {
                 const msg = JSON.parse(e.nativeEvent.data);
                 if (msg.type === 'tap') {
                   const place = places.find(p => p.id === msg.id);
-                  if (place) {
-                    setSelectedPlace(place);
-                    setSheetVisible(true);
-                  }
+                  if (place) openDetail(place);
                 }
               } catch {}
             }}
@@ -709,7 +878,7 @@ export default function MapScreen() {
       </View>
 
       {/* 맛집 리스트 */}
-      <ScrollView style={styles.listSection} showsVerticalScrollIndicator={false}>
+      <View style={styles.listSection}>
 
         {location && (
           <View style={[styles.nameSearchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -762,7 +931,9 @@ export default function MapScreen() {
                   <View style={styles.placeTopRow}>
                     <Text style={[styles.placeName, { color: colors.text }]} numberOfLines={1}>{place.name}</Text>
                     <View style={[styles.catBadge, { backgroundColor: (CAT_COLORS[place.categorySimple] ?? '#7c6fff') + '22' }]}>
-                      <Text style={[styles.catBadgeText, { color: CAT_COLORS[place.categorySimple] ?? '#7c6fff' }]}>{place.categorySimple}</Text>
+                      <Text style={[styles.catBadgeText, { color: CAT_COLORS[place.categorySimple] ?? '#7c6fff' }]}>
+                        {place.categoryDetail || place.categorySimple}
+                      </Text>
                     </View>
                   </View>
                   {place.address ? (
@@ -779,6 +950,8 @@ export default function MapScreen() {
         )}
 
         <View style={{ height: 30 }} />
+      </View>
+
       </ScrollView>
 
       {/* 장소 상세 하단 시트 */}
@@ -821,7 +994,7 @@ const styles = StyleSheet.create({
   catText: { fontSize: 12, fontWeight: '600' },
   catTextActive: { color: '#fff' },
 
-  mapWrap: { height: 220, marginHorizontal: 16, marginBottom: 10, borderRadius: 16, overflow: 'hidden' },
+  mapWrap: { height: 200, marginHorizontal: 16, marginBottom: 10, borderRadius: 16, overflow: 'hidden' },
   map: { flex: 1 },
   mapPlaceholder: {
     flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16,
@@ -829,7 +1002,7 @@ const styles = StyleSheet.create({
   mapPlaceholderEmoji: { fontSize: 40, marginBottom: 8 },
   mapPlaceholderText: { fontSize: 13 },
 
-  listSection: { flex: 1, paddingHorizontal: 16 },
+  listSection: { paddingHorizontal: 16 },
   nameSearchRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderRadius: 12, borderWidth: 1,
