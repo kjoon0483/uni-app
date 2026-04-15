@@ -436,6 +436,10 @@ const makeMapHtml = (jsKey: string) => `
       }
       document.addEventListener('message',handle);
       window.addEventListener('message',handle);
+
+      // Kakao 지도 완전 초기화 완료 신호
+      if(window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({type:'kakaoReady'}));
+      else window.parent.postMessage(JSON.stringify({type:'kakaoReady'}),'*');
     });
   </script>
 </body>
@@ -743,12 +747,13 @@ export default function MapScreen() {
     });
   }, []);
 
-  // 웹: iframe → React 메시지 수신 (마커 탭 처리)
+  // 웹: iframe → React 메시지 수신 (마커 탭 + kakaoReady 처리)
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const handler = (e: MessageEvent) => {
       try {
         const msg = JSON.parse(typeof e.data === 'string' ? e.data : JSON.stringify(e.data));
+        if (msg.type === 'kakaoReady') setMapReady(true);
         if (msg.type === 'tap') {
           const place = placesRef.current.find(p => p.id === msg.id);
           if (place) {
@@ -917,12 +922,12 @@ export default function MapScreen() {
             ref={webViewRef}
             source={{ html: mapHtml }}
             style={styles.map}
-            onLoadEnd={() => setMapReady(true)}
             onMessage={e => {
               try {
                 const msg = JSON.parse(e.nativeEvent.data);
+                if (msg.type === 'kakaoReady') setMapReady(true);
                 if (msg.type === 'tap') {
-                  const place = places.find(p => p.id === msg.id);
+                  const place = placesRef.current.find(p => p.id === msg.id);
                   if (place) openDetail(place);
                 }
               } catch {}
