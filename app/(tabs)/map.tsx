@@ -895,6 +895,12 @@ export default function MapScreen() {
             </Text>
             {loading && <ActivityIndicator color="#7c6fff" size="small" style={{ marginLeft: 8 }} />}
           </View>
+          <TouchableOpacity
+            style={[styles.searchBtn, { marginLeft: 8 }]}
+            onPress={search}
+            disabled={loading || !schoolQuery}>
+            <Text style={styles.searchBtnText}>검색</Text>
+          </TouchableOpacity>
         </View>
 
         {/* 음식점 이름 검색 */}
