@@ -695,33 +695,30 @@ export default function MapScreen() {
   // AI에서 카테고리 파라미터로 넘어온 경우 자동 검색
   useEffect(() => {
     if (!category) return;
-    const found = CATEGORIES.find(c => c.label === category);
-    if (found) setSelectedCat(found);
+    const found = CATEGORIES.find(c => c.label === category) ?? CATEGORIES[0];
+    setSelectedCat(found);
 
     supabase.auth.getUser().then(async ({ data }) => {
       const meta = data?.user?.user_metadata ?? {};
       const name = (meta.school_name ?? meta.schoolName ?? '').trim();
       if (!name) return;
       setSchoolQuery(name);
+      setLoading(true);
+      setError('');
+      setPlaces([]);
+      setSheetVisible(false);
       try {
         const loc = await searchSchoolLocation(name);
         setLocation(loc);
-        const cat = found ?? CATEGORIES[0];
-        const h = kakaoHeaders();
-        const base = `x=${loc.lng}&y=${loc.lat}&radius=2000&size=20`;
-        const keyword = CAT_KEYWORD[cat.label] ?? cat.label;
-        const query = cat.label === '전체' ? `${name} 맛집` : `${name} ${keyword}`;
-        const code = cat.label === '카페' ? 'CE7' : cat.label !== '전체' ? 'FD6' : '';
-        const res = await fetch(
-          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}${code ? `&category_group_code=${code}` : ''}&${base}`,
-          { headers: h }
-        );
-        const json = await res.json();
-        const results = mapDocs(json.documents ?? [], code);
+        if (mapReady) postToMap({ type: 'center', lat: loc.lat, lng: loc.lng });
+        const results = await fetchPlaces(loc.lat, loc.lng, found, name);
         setPlaces(results);
-        postToMap({ type: 'markers', places: results });
-        postToMap({ type: 'center', lat: loc.lat, lng: loc.lng });
-      } catch {}
+        if (results.length === 0) setError('해당 카테고리 결과가 없어요');
+      } catch (e: any) {
+        setError(e.message || '장소 검색 중 오류가 발생했어요');
+      } finally {
+        setLoading(false);
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
