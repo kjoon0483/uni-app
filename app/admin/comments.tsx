@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,6 +29,8 @@ export default function AdminComments() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => { loadComments(); }, []);
 
@@ -44,26 +47,40 @@ export default function AdminComments() {
         ...c,
         post_title: c.posts?.title ?? '(삭제된 게시글)',
       })));
+    } else if (error) {
+      setDeleteError('댓글 로드 실패: ' + error.message);
     }
     setLoading(false);
   };
 
-  const deleteComment = (comment: Comment) => {
-    Alert.alert(
-      '댓글 삭제',
-      `"${comment.body.slice(0, 30)}${comment.body.length > 30 ? '...' : ''}" 댓글을 삭제하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제', style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.from('comments').delete().eq('id', comment.id);
-            if (!error) setComments(prev => prev.filter(c => c.id !== comment.id));
-            else Alert.alert('오류', error.message);
-          },
-        },
-      ]
-    );
+  const confirmDelete = (comment: Comment) => {
+    setDeleteError('');
+    const preview = comment.body.slice(0, 30) + (comment.body.length > 30 ? '...' : '');
+    if (Platform.OS === 'web') {
+      if (window.confirm(`"${preview}" 댓글을 삭제하시겠습니까?`)) {
+        doDelete(comment.id);
+      }
+    } else {
+      Alert.alert(
+        '댓글 삭제',
+        `"${preview}" 댓글을 삭제하시겠습니까?`,
+        [
+          { text: '취소', style: 'cancel' },
+          { text: '삭제', style: 'destructive', onPress: () => doDelete(comment.id) },
+        ]
+      );
+    }
+  };
+
+  const doDelete = async (commentId: string) => {
+    setDeletingId(commentId);
+    const { error } = await supabase.from('comments').delete().eq('id', commentId);
+    if (!error) {
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    } else {
+      setDeleteError('삭제 실패: ' + error.message);
+    }
+    setDeletingId(null);
   };
 
   const filtered = searchQuery.trim()
@@ -82,12 +99,21 @@ export default function AdminComments() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/admin' as any)} style={styles.backBtn}>
           <Text style={styles.backText}>← 뒤로</Text>
         </TouchableOpacity>
         <Text style={styles.title}>댓글 관리</Text>
         <Text style={styles.count}>{filtered.length}개</Text>
       </View>
+
+      {deleteError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>⚠️ {deleteError}</Text>
+          <TouchableOpacity onPress={() => setDeleteError('')}>
+            <Text style={styles.errorClose}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <View style={styles.searchBox}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -122,8 +148,15 @@ export default function AdminComments() {
                 <Text style={styles.date}>{formatDate(comment.created_at)}</Text>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaText}>❤️ {comment.likes ?? 0}</Text>
-                  <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteComment(comment)}>
-                    <Text style={styles.deleteBtnText}>삭제</Text>
+                  <TouchableOpacity
+                    style={[styles.deleteBtn, deletingId === comment.id && styles.deleteBtnDisabled]}
+                    onPress={() => confirmDelete(comment)}
+                    disabled={deletingId === comment.id}
+                  >
+                    {deletingId === comment.id
+                      ? <ActivityIndicator size="small" color="#ff6666" />
+                      : <Text style={styles.deleteBtnText}>삭제</Text>
+                    }
                   </TouchableOpacity>
                 </View>
               </View>
@@ -148,6 +181,15 @@ const styles = StyleSheet.create({
   count: { fontSize: 14, color: '#666' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
   emptyText: { color: '#555', fontSize: 14 },
+
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#ff444422', borderWidth: 1, borderColor: '#ff4444',
+    marginHorizontal: 16, marginBottom: 8, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  errorBannerText: { flex: 1, color: '#ff6666', fontSize: 12 },
+  errorClose: { color: '#ff6666', fontSize: 14, fontWeight: '700', paddingLeft: 8 },
 
   searchBox: {
     flexDirection: 'row', alignItems: 'center',
@@ -182,6 +224,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff444422', borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 1, borderColor: '#ff4444',
+    minWidth: 44, alignItems: 'center',
   },
+  deleteBtnDisabled: { opacity: 0.5 },
   deleteBtnText: { fontSize: 11, color: '#ff6666', fontWeight: '700' },
 });

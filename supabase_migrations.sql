@@ -151,10 +151,12 @@ drop policy if exists "friends_delete" on friends;
 create policy "friends_delete" on friends
   for delete using (auth.uid() = requester_id or auth.uid() = addressee_id);
 
--- ── 11. 관리자 헬퍼 함수 ──────────────────────────────────────
+-- ── 11. 관리자 헬퍼 함수 (security definer: RLS 우회하여 안전하게 실행) ─
 create or replace function is_admin()
 returns boolean
 language sql stable
+security definer
+set search_path = public
 as $$
   select coalesce(
     (select is_admin from profiles where id = auth.uid()),

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,7 +19,7 @@ type Profile = {
   email: string;
   school: string;
   is_admin: boolean;
-  is_banned: boolean;
+  is_banned?: boolean;
   created_at: string;
 };
 
@@ -27,6 +28,8 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [myId, setMyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyId(data?.user?.id ?? null));
@@ -35,10 +38,17 @@ export default function AdminUsers() {
 
   const loadUsers = async () => {
     setLoading(true);
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from('profiles')
       .select('id, nickname, email, school, is_admin, is_banned, created_at')
       .order('created_at', { ascending: false });
+    if (error) {
+      const res = await supabase
+        .from('profiles')
+        .select('id, nickname, email, school, is_admin, created_at')
+        .order('created_at', { ascending: false });
+      data = res.data as any;
+    }
     setUsers((data as Profile[]) ?? []);
     setLoading(false);
   };
@@ -50,69 +60,78 @@ export default function AdminUsers() {
       )
     : users;
 
+  const doToggleAdmin = async (user: Profile) => {
+    if (user.id === myId) { setActionError('본인의 관리자 권한은 변경할 수 없습니다.'); return; }
+    setLoadingId(user.id);
+    setActionError('');
+    const { error } = await supabase
+      .from('profiles').update({ is_admin: !user.is_admin }).eq('id', user.id);
+    if (!error) await loadUsers();
+    else setActionError('권한 변경 실패: ' + error.message);
+    setLoadingId(null);
+  };
+
+  const doToggleBan = async (user: Profile) => {
+    if (user.id === myId) { setActionError('본인 계정은 정지할 수 없습니다.'); return; }
+    setLoadingId(user.id);
+    setActionError('');
+    const { error } = await supabase
+      .from('profiles').update({ is_banned: !user.is_banned }).eq('id', user.id);
+    if (!error) await loadUsers();
+    else setActionError('정지 처리 실패: ' + error.message);
+    setLoadingId(null);
+  };
+
+  const doDeleteUser = async (user: Profile) => {
+    if (user.id === myId) { setActionError('본인 계정은 삭제할 수 없습니다.'); return; }
+    setLoadingId(user.id);
+    setActionError('');
+    const { error } = await supabase.from('profiles').delete().eq('id', user.id);
+    if (!error) setUsers(prev => prev.filter(u => u.id !== user.id));
+    else setActionError('삭제 실패: ' + error.message);
+    setLoadingId(null);
+  };
+
   const toggleAdmin = (user: Profile) => {
-    if (user.id === myId) {
-      Alert.alert('불가', '본인의 관리자 권한은 변경할 수 없습니다.');
-      return;
+    setActionError('');
+    if (Platform.OS === 'web') {
+      const action = user.is_admin ? '관리자 권한을 해제' : '관리자 권한을 부여';
+      if (window.confirm(`${user.nickname || user.email}의 ${action}하시겠습니까?`)) doToggleAdmin(user);
+    } else {
+      const action = user.is_admin ? '관리자 권한 해제' : '관리자 권한 부여';
+      Alert.alert(action, `${user.nickname || user.email}에게 ${action}하시겠습니까?`, [
+        { text: '취소', style: 'cancel' },
+        { text: '확인', onPress: () => doToggleAdmin(user) },
+      ]);
     }
-    const action = user.is_admin ? '관리자 권한 해제' : '관리자 권한 부여';
-    Alert.alert(action, `${user.nickname || user.email}의 ${action}하시겠습니까?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '확인',
-        onPress: async () => {
-          const { error } = await supabase
-            .from('profiles').update({ is_admin: !user.is_admin }).eq('id', user.id);
-          if (!error) loadUsers();
-          else Alert.alert('오류', error.message);
-        },
-      },
-    ]);
   };
 
   const toggleBan = (user: Profile) => {
-    if (user.id === myId) {
-      Alert.alert('불가', '본인 계정은 정지할 수 없습니다.');
-      return;
+    setActionError('');
+    if (Platform.OS === 'web') {
+      const msg = user.is_banned
+        ? `${user.nickname || user.email}의 정지를 해제하시겠습니까?`
+        : `${user.nickname || user.email}을 정지하면 로그인이 차단됩니다. 계속하시겠습니까?`;
+      if (window.confirm(msg)) doToggleBan(user);
+    } else {
+      const action = user.is_banned ? '정지 해제' : '계정 정지';
+      Alert.alert(action, `${user.nickname || user.email}\n${user.is_banned ? '정지를 해제하시겠습니까?' : '정지하면 로그인이 차단됩니다.'}`, [
+        { text: '취소', style: 'cancel' },
+        { text: action, style: user.is_banned ? 'default' : 'destructive', onPress: () => doToggleBan(user) },
+      ]);
     }
-    const action = user.is_banned ? '정지 해제' : '계정 정지';
-    const detail = user.is_banned
-      ? '이 사용자의 정지를 해제하시겠습니까?'
-      : '이 사용자를 정지하면 로그인이 차단됩니다. 계속하시겠습니까?';
-    Alert.alert(action, `${user.nickname || user.email}\n${detail}`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: action, style: user.is_banned ? 'default' : 'destructive',
-        onPress: async () => {
-          const { error } = await supabase
-            .from('profiles').update({ is_banned: !user.is_banned }).eq('id', user.id);
-          if (!error) loadUsers();
-          else Alert.alert('오류', error.message);
-        },
-      },
-    ]);
   };
 
   const deleteUser = (user: Profile) => {
-    if (user.id === myId) {
-      Alert.alert('불가', '본인 계정은 삭제할 수 없습니다.');
-      return;
-    }
-    Alert.alert(
-      '계정 삭제',
-      `"${user.nickname || user.email}" 계정을 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
-      [
+    setActionError('');
+    if (Platform.OS === 'web') {
+      if (window.confirm(`"${user.nickname || user.email}" 계정을 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.`)) doDeleteUser(user);
+    } else {
+      Alert.alert('계정 삭제', `"${user.nickname || user.email}" 계정을 완전히 삭제하시겠습니까?\n되돌릴 수 없습니다.`, [
         { text: '취소', style: 'cancel' },
-        {
-          text: '삭제', style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-            if (!error) setUsers(prev => prev.filter(u => u.id !== user.id));
-            else Alert.alert('오류', error.message);
-          },
-        },
-      ]
-    );
+        { text: '삭제', style: 'destructive', onPress: () => doDeleteUser(user) },
+      ]);
+    }
   };
 
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString('ko-KR');
@@ -120,12 +139,21 @@ export default function AdminUsers() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/admin' as any)} style={styles.backBtn}>
           <Text style={styles.backText}>← 뒤로</Text>
         </TouchableOpacity>
         <Text style={styles.title}>사용자 관리</Text>
         <Text style={styles.count}>{filtered.length}명</Text>
       </View>
+
+      {actionError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>⚠️ {actionError}</Text>
+          <TouchableOpacity onPress={() => setActionError('')}>
+            <Text style={styles.errorClose}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <View style={styles.searchBox}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -189,15 +217,20 @@ export default function AdminUsers() {
                 <TouchableOpacity
                   style={[styles.actionBtn, user.is_banned ? styles.unbanBtn : styles.banBtn]}
                   onPress={() => toggleBan(user)}
+                  disabled={loadingId === user.id}
                 >
-                  <Text style={[styles.actionBtnText, user.is_banned ? styles.unbanText : styles.banText]}>
-                    {user.is_banned ? '정지 해제' : '계정 정지'}
-                  </Text>
+                  {loadingId === user.id
+                    ? <ActivityIndicator size="small" color="#888" />
+                    : <Text style={[styles.actionBtnText, user.is_banned ? styles.unbanText : styles.banText]}>
+                        {user.is_banned ? '정지 해제' : '계정 정지'}
+                      </Text>
+                  }
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.actionBtn, user.is_admin ? styles.adminActiveBtn : styles.adminBtn]}
                   onPress={() => toggleAdmin(user)}
+                  disabled={loadingId === user.id}
                 >
                   <Text style={[styles.actionBtnText, user.is_admin ? styles.adminActiveText : styles.adminText]}>
                     {user.is_admin ? '관리자 해제' : '관리자 지정'}
@@ -207,6 +240,7 @@ export default function AdminUsers() {
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.deleteBtn]}
                   onPress={() => deleteUser(user)}
+                  disabled={loadingId === user.id}
                 >
                   <Text style={[styles.actionBtnText, styles.deleteText]}>삭제</Text>
                 </TouchableOpacity>
@@ -232,6 +266,15 @@ const styles = StyleSheet.create({
   count: { fontSize: 14, color: '#666' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
   emptyText: { color: '#555', fontSize: 14 },
+
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#ff444422', borderWidth: 1, borderColor: '#ff4444',
+    marginHorizontal: 16, marginBottom: 8, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  errorBannerText: { flex: 1, color: '#ff6666', fontSize: 12 },
+  errorClose: { color: '#ff6666', fontSize: 14, fontWeight: '700', paddingLeft: 8 },
 
   searchBox: {
     flexDirection: 'row', alignItems: 'center',
@@ -286,7 +329,7 @@ const styles = StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: 8 },
   actionBtn: {
     flex: 1, borderRadius: 10, paddingVertical: 8, alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1, minHeight: 34, justifyContent: 'center',
   },
   actionBtnText: { fontSize: 12, fontWeight: '700' },
   banBtn: { backgroundColor: '#1a0a0a', borderColor: '#ef4444' },
