@@ -40,11 +40,18 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       setLoginError('');
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: toEmail(loginEmail),
         password: loginPassword,
       });
       if (error) throw error;
+      const { data: profile } = await supabase
+        .from('profiles').select('is_banned').eq('id', data.user!.id).single();
+      if (profile?.is_banned) {
+        await supabase.auth.signOut();
+        setLoginError('이 계정은 관리자에 의해 정지되었습니다.');
+        return;
+      }
       router.replace('/(tabs)');
     } catch {
       setLoginError('아이디 또는 비밀번호가 틀렸습니다.');

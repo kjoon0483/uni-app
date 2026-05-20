@@ -38,6 +38,7 @@ export default function AdminLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="users" options={{ headerShown: false }} />
       <Stack.Screen name="posts" options={{ headerShown: false }} />
+      <Stack.Screen name="comments" options={{ headerShown: false }} />
     </Stack>
   );
 }

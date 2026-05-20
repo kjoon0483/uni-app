@@ -151,6 +151,56 @@ drop policy if exists "friends_delete" on friends;
 create policy "friends_delete" on friends
   for delete using (auth.uid() = requester_id or auth.uid() = addressee_id);
 
+-- ── 11. 관리자 헬퍼 함수 ──────────────────────────────────────
+create or replace function is_admin()
+returns boolean
+language sql stable
+as $$
+  select coalesce(
+    (select is_admin from profiles where id = auth.uid()),
+    false
+  );
+$$;
+
+-- ── 12. profiles 테이블 - 정지 컬럼 + 관리자 RLS ────────────────
+alter table profiles add column if not exists is_banned boolean default false;
+
+-- 관리자는 모든 프로필 조회/수정 가능
+drop policy if exists "profiles_admin_select" on profiles;
+create policy "profiles_admin_select" on profiles
+  for select using (is_admin());
+
+drop policy if exists "profiles_admin_update" on profiles;
+create policy "profiles_admin_update" on profiles
+  for update using (is_admin());
+
+-- ── 13. posts 테이블 - 관리자 RLS ───────────────────────────────
+drop policy if exists "posts_admin_delete" on posts;
+create policy "posts_admin_delete" on posts
+  for delete using (is_admin());
+
+drop policy if exists "posts_admin_select" on posts;
+create policy "posts_admin_select" on posts
+  for select using (is_admin());
+
+-- ── 14. comments 테이블 - 관리자 RLS ────────────────────────────
+drop policy if exists "comments_admin_select" on comments;
+create policy "comments_admin_select" on comments
+  for select using (is_admin());
+
+drop policy if exists "comments_admin_delete" on comments;
+create policy "comments_admin_delete" on comments
+  for delete using (is_admin());
+
+-- ── 15. chat_messages 관리자 RLS ─────────────────────────────────
+drop policy if exists "chat_messages_admin_select" on chat_messages;
+create policy "chat_messages_admin_select" on chat_messages
+  for select using (is_admin());
+
+drop policy if exists "chat_messages_admin_delete" on chat_messages;
+create policy "chat_messages_admin_delete" on chat_messages
+  for delete using (is_admin());
+
 -- ── 완료 ────────────────────────────────────────────────────────
 -- ※ 앱에서 아이디 'dnf826', 비밀번호 '000000' 으로 회원가입 후 아래 SQL 실행:
 -- update profiles set is_admin = true

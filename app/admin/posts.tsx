@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
+const TABS = ['전체', '자유', '질문', '정보', '익명'];
+
 type Post = {
   id: string;
   title: string;
@@ -27,6 +29,7 @@ export default function AdminPosts() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTab, setSelectedTab] = useState('전체');
 
   useEffect(() => { loadPosts(); }, []);
 
@@ -36,7 +39,7 @@ export default function AdminPosts() {
       .from('posts')
       .select('id, title, body, tab, author_nickname, is_anonymous, likes, created_at')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
     if (!error) setPosts((data as Post[]) ?? []);
     setLoading(false);
   };
@@ -44,7 +47,7 @@ export default function AdminPosts() {
   const deletePost = (post: Post) => {
     Alert.alert(
       '게시글 삭제',
-      `"${post.title}" 게시글을 삭제하시겠습니까?`,
+      `"${post.title}" 게시글과 관련 댓글을 모두 삭제하시겠습니까?`,
       [
         { text: '취소', style: 'cancel' },
         {
@@ -52,18 +55,22 @@ export default function AdminPosts() {
           onPress: async () => {
             const { error } = await supabase.from('posts').delete().eq('id', post.id);
             if (!error) setPosts(prev => prev.filter(p => p.id !== post.id));
+            else Alert.alert('오류', error.message);
           },
         },
       ]
     );
   };
 
-  const filtered = searchQuery.trim()
-    ? posts.filter(p =>
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.body.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : posts;
+  const filtered = posts.filter(p => {
+    const matchTab = selectedTab === '전체' || p.tab === selectedTab;
+    const q = searchQuery.toLowerCase();
+    const matchSearch = !q ||
+      p.title.toLowerCase().includes(q) ||
+      p.body.toLowerCase().includes(q) ||
+      (p.author_nickname ?? '').toLowerCase().includes(q);
+    return matchTab && matchSearch;
+  });
 
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString('ko-KR');
 
@@ -83,10 +90,27 @@ export default function AdminPosts() {
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="제목 또는 내용 검색..."
+          placeholder="제목, 내용, 작성자 검색..."
           placeholderTextColor="#44445a"
         />
       </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabScroll}
+        contentContainerStyle={styles.tabRow}
+      >
+        {TABS.map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tabBtn, selectedTab === tab && styles.tabBtnActive]}
+            onPress={() => setSelectedTab(tab)}
+          >
+            <Text style={[styles.tabText, selectedTab === tab && styles.tabTextActive]}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {loading ? (
         <View style={styles.center}>
@@ -115,7 +139,7 @@ export default function AdminPosts() {
               <Text style={styles.postContent} numberOfLines={2}>{post.body}</Text>
               <View style={styles.postFooter}>
                 <Text style={styles.author}>
-                  {post.is_anonymous ? '익명' : post.author_nickname}
+                  {post.is_anonymous ? '익명' : (post.author_nickname || '알 수 없음')}
                 </Text>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaText}>❤️ {post.likes ?? 0}</Text>
@@ -150,11 +174,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#13131a', borderRadius: 14,
     borderWidth: 1, borderColor: '#2a2a40',
-    marginHorizontal: 16, marginBottom: 12,
+    marginHorizontal: 16, marginBottom: 8,
     paddingHorizontal: 14, paddingVertical: 10,
   },
   searchIcon: { fontSize: 14, marginRight: 8 },
   searchInput: { flex: 1, color: '#eee', fontSize: 13 },
+
+  tabScroll: { flexGrow: 0, marginBottom: 8 },
+  tabRow: { paddingHorizontal: 16, gap: 8, flexDirection: 'row' },
+  tabBtn: {
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 20, backgroundColor: '#13131a',
+    borderWidth: 1, borderColor: '#2a2a40',
+  },
+  tabBtnActive: { backgroundColor: '#7c6fff22', borderColor: '#7c6fff' },
+  tabText: { fontSize: 12, color: '#666', fontWeight: '600' },
+  tabTextActive: { color: '#7c6fff' },
 
   content: { flex: 1, paddingHorizontal: 16 },
   postCard: {

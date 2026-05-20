@@ -78,6 +78,13 @@ export default function RegisterScreen() {
           : error.message || '로그인 중 오류가 발생했어요'
         );
       } else {
+        const { data: profile } = await supabase
+          .from('profiles').select('is_banned').eq('id', data.user!.id).single();
+        if (profile?.is_banned) {
+          await supabase.auth.signOut();
+          setErrorMsg('이 계정은 관리자에 의해 정지되었습니다.');
+          return;
+        }
         const name = data.user?.user_metadata?.nickname ?? '';
         setSuccessMsg(name ? `${name}님, 돌아오셨군요! 👋` : '환영해요! 👋');
         setTimeout(() => router.replace('/(tabs)'), 800);
