@@ -60,14 +60,17 @@ export default function AdminUsers() {
       )
     : users;
 
+  const RLS_MSG = 'Supabase SQL Editor에서 관리자 RLS 정책을 실행해주세요 (migrations.sql 11~15번 섹션)';
+
   const doToggleAdmin = async (user: Profile) => {
     if (user.id === myId) { setActionError('본인의 관리자 권한은 변경할 수 없습니다.'); return; }
     setLoadingId(user.id);
     setActionError('');
-    const { error } = await supabase
-      .from('profiles').update({ is_admin: !user.is_admin }).eq('id', user.id);
-    if (!error) await loadUsers();
-    else setActionError('권한 변경 실패: ' + error.message);
+    const { error, count } = await supabase
+      .from('profiles').update({ is_admin: !user.is_admin }, { count: 'exact' }).eq('id', user.id);
+    if (error) setActionError('권한 변경 실패: ' + error.message);
+    else if (count === 0) setActionError('권한 없음 — ' + RLS_MSG);
+    else await loadUsers();
     setLoadingId(null);
   };
 
@@ -75,10 +78,11 @@ export default function AdminUsers() {
     if (user.id === myId) { setActionError('본인 계정은 정지할 수 없습니다.'); return; }
     setLoadingId(user.id);
     setActionError('');
-    const { error } = await supabase
-      .from('profiles').update({ is_banned: !user.is_banned }).eq('id', user.id);
-    if (!error) await loadUsers();
-    else setActionError('정지 처리 실패: ' + error.message);
+    const { error, count } = await supabase
+      .from('profiles').update({ is_banned: !user.is_banned }, { count: 'exact' }).eq('id', user.id);
+    if (error) setActionError('정지 처리 실패: ' + error.message);
+    else if (count === 0) setActionError('권한 없음 — ' + RLS_MSG);
+    else await loadUsers();
     setLoadingId(null);
   };
 
@@ -86,9 +90,11 @@ export default function AdminUsers() {
     if (user.id === myId) { setActionError('본인 계정은 삭제할 수 없습니다.'); return; }
     setLoadingId(user.id);
     setActionError('');
-    const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-    if (!error) setUsers(prev => prev.filter(u => u.id !== user.id));
-    else setActionError('삭제 실패: ' + error.message);
+    const { error, count } = await supabase
+      .from('profiles').delete({ count: 'exact' }).eq('id', user.id);
+    if (error) setActionError('삭제 실패: ' + error.message);
+    else if (count === 0) setActionError('권한 없음 — ' + RLS_MSG);
+    else setUsers(prev => prev.filter(u => u.id !== user.id));
     setLoadingId(null);
   };
 

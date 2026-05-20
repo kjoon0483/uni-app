@@ -68,11 +68,16 @@ export default function AdminPosts() {
 
   const doDelete = async (postId: string) => {
     setDeletingId(postId);
-    const { error } = await supabase.from('posts').delete().eq('id', postId);
-    if (!error) {
-      setPosts(prev => prev.filter(p => p.id !== postId));
-    } else {
+    const { error, count } = await supabase
+      .from('posts')
+      .delete({ count: 'exact' })
+      .eq('id', postId);
+    if (error) {
       setDeleteError('삭제 실패: ' + error.message);
+    } else if (count === 0) {
+      setDeleteError('삭제 권한 없음 — Supabase SQL Editor에서 관리자 RLS 정책을 실행해주세요 (migrations.sql 11~15번 섹션)');
+    } else {
+      setPosts(prev => prev.filter(p => p.id !== postId));
     }
     setDeletingId(null);
   };
