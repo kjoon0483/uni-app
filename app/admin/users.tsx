@@ -38,17 +38,8 @@ export default function AdminUsers() {
 
   const loadUsers = async () => {
     setLoading(true);
-    let { data, error } = await supabase
-      .from('profiles')
-      .select('id, nickname, email, school, is_admin, is_banned, created_at')
-      .order('created_at', { ascending: false });
-    if (error) {
-      const res = await supabase
-        .from('profiles')
-        .select('id, nickname, email, school, is_admin, created_at')
-        .order('created_at', { ascending: false });
-      data = res.data as any;
-    }
+    const { data, error } = await supabase.rpc('get_profiles_for_admin');
+    if (error) setActionError('불러오기 실패: ' + error.message);
     setUsers((data as Profile[]) ?? []);
     setLoading(false);
   };
