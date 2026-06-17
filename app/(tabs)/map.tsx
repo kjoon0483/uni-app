@@ -68,17 +68,6 @@ type Review = {
   created_at: string;
 };
 
-// ── 카테고리 → Overpass 태그 매핑 (웹용) ────────────────────
-const OVERPASS_TAGS: Record<string, string> = {
-  전체: '"amenity"~"restaurant|cafe|fast_food|bar|pub"',
-  한식: '"cuisine"~"korean"',
-  중식: '"cuisine"~"chinese"',
-  일식: '"cuisine"~"japanese|sushi|ramen"',
-  양식: '"cuisine"~"pizza|burger|italian|western"',
-  카페: '"amenity"~"cafe"',
-  술집: '"amenity"~"bar|pub"',
-  분식: '"cuisine"~"korean;bunsik|bunsik"',
-};
 
 const getCategorySimple = (categoryName: string, code: string): string => {
   if (code === 'CE7') return '카페';
@@ -127,79 +116,7 @@ const searchSchoolWeb = async (query: string) => {
   return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), name: query };
 };
 
-// ── 웹: Overpass API 장소 검색 ───────────────────────────────
-const OVERPASS_MIRRORS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-];
-
-const fetchPlacesWeb = async (lat: number, lng: number, cat: typeof CATEGORIES[0]): Promise<Place[]> => {
-  const query = `[out:json][timeout:25];(node["amenity"~"restaurant|cafe|fast_food|bar|pub|food_court"](around:1000,${lat},${lng});way["amenity"~"restaurant|cafe|fast_food|bar|pub"](around:1000,${lat},${lng}););out center;`;
-
-  let text = '';
-  for (const mirror of OVERPASS_MIRRORS) {
-    try {
-      const res = await fetch(mirror, { method: 'POST', body: query });
-      text = await res.text();
-      if (text.startsWith('{')) break;
-    } catch {
-      continue;
-    }
-  }
-
-  if (!text.startsWith('{')) throw new Error('장소 정보를 불러올 수 없어요.\n웹에서는 데이터가 제한적이에요.\n모바일 앱에서 사용하면 Kakao 데이터로 더 많은 결과가 나와요.');
-
-  const data = JSON.parse(text);
-
-  const getSimpleCategory = (el: any): string => {
-    const amenity = el.tags?.amenity ?? '';
-    const cuisine = (el.tags?.cuisine ?? '').toLowerCase();
-    if (amenity === 'cafe') return '카페';
-    if (amenity === 'bar' || amenity === 'pub') return '술집';
-    if (cuisine.includes('korean')) return '한식';
-    if (cuisine.includes('chinese')) return '중식';
-    if (cuisine.includes('japanese') || cuisine.includes('sushi') || cuisine.includes('ramen')) return '일식';
-    if (cuisine.includes('pizza') || cuisine.includes('burger') || cuisine.includes('italian') || cuisine.includes('western')) return '양식';
-    return '한식';
-  };
-
-  const getDetailCategory = (el: any): string => {
-    const amenity = el.tags?.amenity ?? '';
-    const cuisine = (el.tags?.cuisine ?? '').toLowerCase();
-    if (amenity === 'fast_food') return '패스트푸드';
-    if (amenity === 'bar') return '바';
-    if (amenity === 'pub') return '펍';
-    if (cuisine.includes('sushi')) return '초밥·롤';
-    if (cuisine.includes('ramen')) return '라멘';
-    if (cuisine.includes('pizza')) return '피자';
-    if (cuisine.includes('burger')) return '버거';
-    if (cuisine.includes('italian')) return '이탈리안';
-    return '';
-  };
-
-  const all: Place[] = (data.elements ?? [])
-    .map((el: any) => {
-      const center = el.center ?? el;
-      return {
-        id: String(el.id),
-        name: el.tags?.['name:ko'] || el.tags?.name || '',
-        categorySimple: getSimpleCategory(el),
-        categoryDetail: getDetailCategory(el),
-        address: el.tags?.['addr:full'] || el.tags?.['addr:street'] || '',
-        phone: el.tags?.phone || '',
-        lat: center.lat,
-        lng: center.lon,
-        url: '',
-      };
-    })
-    .filter((p: Place) => p.name.length > 0);
-
-  if (cat.label === '전체') return all;
-  return all.filter(p => p.categorySimple === cat.label);
-};
-
-// ── 모바일: Kakao API ────────────────────────────────────────
+// ── Kakao API ────────────────────────────────────────────────
 const kakaoHeaders = () => ({ Authorization: `KakaoAK ${process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY ?? ''}` });
 
 const mapDocs = (docs: any[], code: string): Place[] =>
@@ -287,7 +204,7 @@ const searchSchoolLocation = (query: string) =>
   Platform.OS === 'web' ? searchSchoolWeb(query) : searchSchoolKakao(query);
 
 const fetchPlaces = (lat: number, lng: number, cat: typeof CATEGORIES[0], schoolName: string) =>
-  Platform.OS === 'web' ? fetchPlacesWeb(lat, lng, cat) : fetchPlacesKakao(lat, lng, cat, schoolName);
+  fetchPlacesKakao(lat, lng, cat, schoolName);
 
 // ── 웹: Leaflet 인터랙티브 지도 HTML ────────────────────────
 const makeLeafletHtml = () => `
