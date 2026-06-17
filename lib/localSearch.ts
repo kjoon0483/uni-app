@@ -212,6 +212,7 @@ export function formatTimetableContext(classesJson: string, query: string): stri
 // ── 커뮤니티 쿼리 감지 ────────────────────────────────────────
 const COMMUNITY_KEYWORDS = [
   '커뮤니티', '게시글', '글있', '공지', '후기', '학우', '학생들', '게시판', '올라온', '올린글', '커뮤에',
+  '맛집', '식당', '음식점', '밥집', '먹을곳', '카페', '추천', '맛있는', '어디',
 ];
 
 export function isCommunityQuery(query: string): boolean {
