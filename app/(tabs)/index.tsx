@@ -40,11 +40,14 @@ function detectMapCategory(text: string): string | null {
 }
 
 function extractFirstRestaurantName(text: string): string | null {
-  // **굵은글씨** 패턴 (마크다운 bold)
-  const boldMatch = text.match(/\*\*([^*\n]{2,20})\*\*/);
-  if (boldMatch) return boldMatch[1].trim();
-  // "1. 식당이름" 또는 "- 식당이름" 패턴
-  const listMatch = text.match(/^[\d\-\*]+[\.\)]\s*([^\n\-:：]{2,20})/m);
+  // **이름** 패턴 — 콜론·따옴표·슬래시 없는 순수 이름만, 2~12자
+  const boldMatches = [...text.matchAll(/\*\*([^*\n]{2,12})\*\*/g)];
+  for (const m of boldMatches) {
+    const name = m[1].trim();
+    if (!name.endsWith(':') && !name.endsWith('쪽') && !/['"\/]/.test(name)) return name;
+  }
+  // "1. 이름" 패턴
+  const listMatch = text.match(/^\d+[\.\)]\s*([^\n\-:：'"\/]{2,12})/m);
   if (listMatch) return listMatch[1].trim();
   return null;
 }

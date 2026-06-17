@@ -914,6 +914,7 @@ export default function MapScreen() {
               postToMap({ type: 'markers', places: results });
               postToMap({ type: 'center', lat: results[0].lat, lng: results[0].lng });
             } else {
+              setNameQuery('');
               await loadPlaces(loc.lat, loc.lng, found, name);
             }
           } catch {
