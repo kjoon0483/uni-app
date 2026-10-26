@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { PanResponder, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Sidebar from '@/components/Sidebar';
+import { AiGradient } from '@/components/ui/AiMark';
 import Button, { type FeatherName } from '@/components/ui/Button';
 import { radius, type } from '@/constants/design';
 import { SidebarContext } from '@/lib/SidebarContext';
@@ -14,16 +15,17 @@ function TabIcon({ name, color }: { name: FeatherName; color: string }) {
   return <Feather name={name} size={24} color={color} />;
 }
 
-/** AI홈 탭: AI 전용 색(ai*)으로 구별 */
+/** AI홈 탭: AI 전용 색(ai*)으로 구별. 선택되면 보라→핑크 그라데이션 */
 function HomeTabIcon({ focused }: { focused: boolean }) {
   const { colors } = useTheme();
-  return (
-    <View style={{
-      width: 28, height: 28, borderRadius: 10,
-      backgroundColor: focused ? colors.aiStart : colors.aiSubtle,
-      alignItems: 'center', justifyContent: 'center',
-    }}>
-      <Text style={{ fontSize: 14, fontWeight: '700', color: focused ? '#FFFFFF' : colors.aiText }}>✦</Text>
+  const box = { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center' } as const;
+  return focused ? (
+    <AiGradient style={box}>
+      <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>✦</Text>
+    </AiGradient>
+  ) : (
+    <View style={[box, { backgroundColor: colors.aiSubtle }]}>
+      <Text style={{ fontSize: 14, fontWeight: '700', color: colors.aiText }}>✦</Text>
     </View>
   );
 }
