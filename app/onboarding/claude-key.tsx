@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -13,6 +15,8 @@ import {
 } from 'react-native';
 
 export default function ClaudeKeyScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -93,7 +97,7 @@ export default function ClaudeKeyScreen() {
             <TextInput
               style={styles.input}
               placeholder="sk-ant-api03-..."
-              placeholderTextColor="#44445a"
+              placeholderTextColor={colors.textTertiary}
               value={apiKey}
               onChangeText={(v) => { setApiKey(v); setSaved(false); }}
               secureTextEntry={!showKey}
@@ -157,100 +161,100 @@ export default function ClaudeKeyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
+const useStyles = makeStyles((c) => ({
+  container: { flex: 1, backgroundColor: c.base },
   content: { paddingHorizontal: 24, paddingTop: 55, paddingBottom: 40 },
 
   backBtn: { marginBottom: 20 },
-  backText: { color: '#555', fontSize: 14 },
+  backText: { color: c.textTertiary, fontSize: 14 },
 
   stepRow: { flexDirection: 'row', gap: 8, marginBottom: 28 },
-  stepDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#2a2a40' },
-  stepDotActive: { backgroundColor: '#7c6fff' },
+  stepDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: c.raised },
+  stepDotActive: { backgroundColor: c.accentFill },
 
   iconWrap: { alignItems: 'center', marginBottom: 20 },
   iconOrb: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#7c6fff',
+    backgroundColor: c.accentFill,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#7c6fff', shadowOffset: { width: 0, height: 0 },
+    shadowColor: '#000', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.7, shadowRadius: 20, elevation: 15,
   },
-  iconText: { fontSize: 30, color: '#fff' },
+  iconText: { fontSize: 30, color: c.textPrimary },
 
-  title: { fontSize: 24, fontWeight: '900', color: '#fff', marginBottom: 8, textAlign: 'center' },
-  sub: { fontSize: 14, color: '#888', lineHeight: 22, marginBottom: 24, textAlign: 'center' },
+  title: { fontSize: 24, fontWeight: '700', color: c.textPrimary, marginBottom: 8, textAlign: 'center' },
+  sub: { fontSize: 14, color: c.textSecondary, lineHeight: 22, marginBottom: 24, textAlign: 'center' },
 
   infoCard: {
-    backgroundColor: '#13131a', borderRadius: 16,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: c.borderDefault,
     padding: 18, marginBottom: 20,
   },
-  infoTitle: { fontSize: 14, fontWeight: '700', color: '#eee', marginBottom: 14 },
+  infoTitle: { fontSize: 14, fontWeight: '700', color: c.textPrimary, marginBottom: 14 },
   infoSteps: { gap: 10, marginBottom: 14 },
   infoStep: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   infoStepNum: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: '#7c6fff',
+    backgroundColor: c.accentFill,
     alignItems: 'center', justifyContent: 'center',
   },
-  infoStepNumText: { fontSize: 11, color: '#fff', fontWeight: '900' },
-  infoStepText: { fontSize: 13, color: '#ccc' },
+  infoStepNumText: { fontSize: 12, color: c.onAccent, fontWeight: '700' },
+  infoStepText: { fontSize: 13, color: c.textSecondary },
   consoleBtn: {
-    backgroundColor: '#1a1a2e', borderRadius: 10,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.surface, borderRadius: 10,
+    borderWidth: 1, borderColor: c.borderDefault,
     paddingVertical: 10, alignItems: 'center',
   },
-  consoleBtnText: { fontSize: 13, color: '#a78bfa', fontWeight: '600' },
+  consoleBtnText: { fontSize: 13, color: c.accentText, fontWeight: '500' },
 
   inputSection: { marginBottom: 16 },
-  label: { fontSize: 12, fontWeight: '700', color: '#888', marginBottom: 8 },
+  label: { fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 8 },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#13131a', borderRadius: 14,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: c.borderDefault,
     paddingHorizontal: 16,
   },
-  input: { flex: 1, color: '#eee', fontSize: 13, paddingVertical: 14 },
+  input: { flex: 1, color: c.textPrimary, fontSize: 13, paddingVertical: 14 },
   eyeBtn: { padding: 4 },
   eyeText: { fontSize: 18 },
-  errorText: { fontSize: 11, color: '#ff6b6b', marginTop: 6 },
-  validText: { fontSize: 11, color: '#3eeea0', marginTop: 6 },
+  errorText: { fontSize: 12, color: c.danger, marginTop: 6 },
+  validText: { fontSize: 12, color: c.success, marginTop: 6 },
 
   securityCard: {
     backgroundColor: 'rgba(62,238,160,0.05)', borderRadius: 12,
     borderWidth: 1, borderColor: 'rgba(62,238,160,0.15)',
     padding: 14, marginBottom: 24,
   },
-  securityTitle: { fontSize: 12, fontWeight: '700', color: '#3eeea0', marginBottom: 6 },
-  securityText: { fontSize: 12, color: '#666', lineHeight: 18 },
+  securityTitle: { fontSize: 12, fontWeight: '700', color: c.success, marginBottom: 6 },
+  securityText: { fontSize: 12, color: c.textTertiary, lineHeight: 18 },
 
   saveBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 16,
+    backgroundColor: c.accentFill, borderRadius: 16,
     height: 54, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#7c6fff', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
     marginBottom: 12,
   },
-  saveBtnDisabled: { backgroundColor: '#2a2a40', shadowOpacity: 0 },
-  saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  saveBtnDisabled: { backgroundColor: c.raised, shadowOpacity: 0 },
+  saveBtnText: { color: c.onAccent, fontSize: 15, fontWeight: '700' },
 
   savedBadge: {
     backgroundColor: 'rgba(62,238,160,0.1)', borderRadius: 12,
     borderWidth: 1, borderColor: 'rgba(62,238,160,0.3)',
     paddingVertical: 12, alignItems: 'center', marginBottom: 12,
   },
-  savedText: { fontSize: 15, fontWeight: '800', color: '#3eeea0' },
+  savedText: { fontSize: 15, fontWeight: '700', color: c.success },
 
   startBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 16,
+    backgroundColor: c.accentFill, borderRadius: 16,
     height: 54, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#7c6fff', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
     marginBottom: 12,
   },
-  startBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  startBtnText: { color: c.onAccent, fontSize: 15, fontWeight: '700' },
 
   skipBtn: { alignItems: 'center', paddingVertical: 8 },
-  skipBtnText: { color: '#444', fontSize: 13 },
-});
+  skipBtnText: { color: c.textTertiary, fontSize: 13 },
+}));

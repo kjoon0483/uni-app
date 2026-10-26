@@ -1,3 +1,4 @@
+import { makeStyles } from '@/lib/makeStyles';
 import { createGeminiModel } from '@/lib/gemini';
 import { formatTimetableContext, isCommunityQuery, isTimetableQuery, searchLocalData } from '@/lib/localSearch';
 import { supabase } from '@/lib/supabase';
@@ -5,16 +6,21 @@ import { useTheme } from '@/lib/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatSession, GenerativeModel } from '@google/generative-ai';
 import { router, useFocusEffect } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useCallback, useRef, useState } from 'react';
+import { AiBadge, AiLabel } from '@/components/ui/AiMark';
+import Button from '@/components/ui/Button';
+import Chip from '@/components/ui/Chip';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import { radius, resolveClassColor, type } from '@/constants/design';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Pressable,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -56,13 +62,36 @@ function extractFirstRestaurantName(text: string): string | null {
   return null;
 }
 
+type NextClass = { name: string; room: string; start: string; color: string; todayCount: number; label: string };
+
+/** 시간표(user_timetables)에서 오늘 남은 첫 수업을 찾는다 */
+async function loadNextClass(uid: string): Promise<NextClass | null> {
+  const { data } = await supabase.from('user_timetables').select('classes').eq('user_id', uid).single();
+  const list = (data?.classes ?? []) as { name: string; room?: string; day: number; startTime: string; endTime: string; color?: string }[];
+  const d = new Date().getDay();
+  const dayIdx = d >= 1 && d <= 5 ? d - 1 : -1;
+  const now = new Date().getHours() * 60 + new Date().getMinutes();
+  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const today = list.filter(c => c.day === dayIdx).sort((a, b) => toMin(a.startTime) - toMin(b.startTime));
+  const names = new Set(today.map(c => c.name));
+  const upcoming = today.find(c => toMin(c.endTime) > now);
+  if (!upcoming) return null;
+  const ongoing = toMin(upcoming.startTime) <= now;
+  return {
+    name: upcoming.name, room: upcoming.room ?? '', start: upcoming.startTime, color: upcoming.color ?? '',
+    todayCount: names.size, label: ongoing ? `지금 수업 중 · ~${upcoming.endTime}` : `다음 수업 · ${upcoming.startTime}`,
+  };
+}
+
 export default function HomeScreen() {
+  const styles = useStyles();
   const { colors } = useTheme();
   const [message, setMessage] = useState('');
   const [schoolName, setSchoolName] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [nextClass, setNextClass] = useState<NextClass | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const chatRef = useRef<ChatSession | null>(null);
   const modelRef = useRef<GenerativeModel | null>(null);
@@ -75,6 +104,7 @@ export default function HomeScreen() {
       const name = meta.school_name ?? '';
       const region = meta.school_region ?? '';
       setSchoolName(name);
+      if (uid) loadNextClass(uid).then(setNextClass);
       modelRef.current = createGeminiModel(name || '대학교', region);
       chatRef.current = null;
       setMessages([{
@@ -181,178 +211,145 @@ export default function HomeScreen() {
   };
 
   const quickQuestions = schoolName
-    ? [`🍜 ${schoolName} 주변 맛집`, '📚 수강신청 꿀팁', '💰 장학금 정보', `☕ 학교 근처 카페`, '📝 과제 도움', '💼 취업 정보']
-    : ['🍜 주변 맛집 추천', '📚 수강신청 꿀팁', '💰 장학금 정보', '☕ 근처 카페 어디?', '📝 과제 도움', '💼 취업 정보'];
+    ? [`${schoolName} 주변 맛집`, '수강신청 꿀팁', '장학금 정보', '학교 근처 카페', '과제 도움', '취업 정보']
+    : ['주변 맛집 추천', '수강신청 꿀팁', '장학금 정보', '근처 카페 어디?', '과제 도움', '취업 정보'];
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.bg }]}
+      style={[styles.container, { backgroundColor: colors.base }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}>
 
-      {/* 검색바 */}
-      <TouchableOpacity
-        style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}
-        onPress={() => router.push('/(tabs)/search' as any)}
-        activeOpacity={0.8}>
-        <Text style={styles.searchBarIcon}>🔍</Text>
-        <Text style={[styles.searchBarText, { color: colors.subText }]}>커뮤니티 AI 검색...</Text>
-        <View style={styles.searchBarBadge}>
-          <Text style={styles.searchBarBadgeText}>AI</Text>
-        </View>
-      </TouchableOpacity>
+      <ScreenHeader
+        eyebrow={schoolName || '학교 설정하기'}
+        onEyebrowPress={() => router.push('/edit-profile')}
+        title="무엇이든 물어봐요"
+      />
 
-      {/* 상단 바 */}
-      <View style={[styles.weatherBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={styles.weatherIcon}>🌤️</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.weatherTemp, { color: colors.text }]}>18°C · 맑음</Text>
-          <Text style={[styles.weatherSub, { color: colors.subText }]}>미세먼지 좋음</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.schoolBadge, { borderColor: colors.border }]}
-          onPress={() => router.push('/edit-profile')}>
-          <Text style={styles.schoolBadgeEmoji}>🏫</Text>
-          <Text style={[styles.schoolBadgeText, { color: colors.subText }]} numberOfLines={1}>
-            {schoolName || '학교 설정'}
-          </Text>
-          <Text style={{ color: colors.subText, fontSize: 10 }}>›</Text>
-        </TouchableOpacity>
+      <View style={styles.top}>
+        {/* 커뮤니티 AI 검색 */}
+        <Pressable
+          style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.borderInput }]}
+          onPress={() => router.push('/(tabs)/search' as any)}
+          accessibilityRole="search">
+          <Feather name="search" size={20} color={colors.textTertiary} />
+          <Text style={[type.bodyMedium, styles.flex, { color: colors.textTertiary }]}>커뮤니티 글을 AI로 검색</Text>
+          <AiBadge />
+        </Pressable>
+
+        {/* 다음 수업 */}
+        {nextClass && (
+          <Pressable
+            style={[styles.todayCard, { backgroundColor: colors.surface }]}
+            onPress={() => router.push('/(tabs)/timetable' as any)}>
+            <View style={[styles.todayBar, { backgroundColor: resolveClassColor(nextClass.color, colors) }]} />
+            <View style={styles.flex}>
+              <Text style={[type.caption, { color: colors.textTertiary }]}>{nextClass.label}</Text>
+              <Text style={[type.labelLarge, { color: colors.textPrimary }]} numberOfLines={1}>
+                {nextClass.name}{nextClass.room ? ` · ${nextClass.room}` : ''}
+              </Text>
+            </View>
+            <Text style={[type.labelSmall, { color: colors.textSecondary }]}>오늘 {nextClass.todayCount}개</Text>
+            <Feather name="chevron-right" size={16} color={colors.textTertiary} />
+          </Pressable>
+        )}
       </View>
 
-      {/* 채팅 */}
+      {/* 대화 */}
       <ScrollView
         ref={scrollRef}
         style={styles.chat}
+        contentContainerStyle={styles.chatContent}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-        {messages.map((m, i) => (
-          <View key={i} style={[
-            styles.bubble,
-            m.role === 'user'
-              ? styles.userBubble
-              : [styles.aiBubble, { backgroundColor: colors.card, borderColor: colors.border }],
-          ]}>
-            {m.role === 'ai' && <Text style={styles.aiLabel}>✦ UNI</Text>}
-            <Text style={[styles.bubbleText, { color: m.role === 'user' ? '#fff' : colors.text }]}>
-              {m.text}
-            </Text>
-            {m.role === 'ai' && m.mapCategory && (
-              <TouchableOpacity
-                style={styles.mapBtn}
-                onPress={() => router.push({ pathname: '/(tabs)/map', params: { category: m.mapCategory, query: m.restaurantQuery ?? '', t: String(Date.now()) } })}>
-                <Text style={styles.mapBtnText}>🗺️ 지도에서 보기</Text>
-              </TouchableOpacity>
-            )}
+        {messages.map((m, i) => m.role === 'user' ? (
+          <View key={i} style={[styles.bubble, styles.userBubble, { backgroundColor: colors.accentFill }]}>
+            <Text style={[type.bodyMedium, { color: colors.onAccent }]}>{m.text}</Text>
+          </View>
+        ) : (
+          <View key={i} style={styles.aiWrap}>
+            <AiLabel />
+            <View style={[styles.bubble, styles.aiBubble, { backgroundColor: colors.surface }]}>
+              <Text style={[type.bodyMedium, { color: colors.textPrimary }]}>{m.text}</Text>
+              {m.mapCategory && (
+                <Button
+                  label="지도에서 보기" icon="map" variant="secondary" size="M"
+                  style={styles.mapBtn}
+                  onPress={() => router.push({ pathname: '/(tabs)/map', params: { category: m.mapCategory, query: m.restaurantQuery ?? '', t: String(Date.now()) } })}
+                />
+              )}
+            </View>
           </View>
         ))}
         {loading && (
-          <View style={[styles.bubble, styles.aiBubble, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={styles.aiLabel}>✦ UNI</Text>
-            <ActivityIndicator color="#7c6fff" size="small" />
+          <View style={styles.aiWrap}>
+            <AiLabel />
+            <View style={[styles.bubble, styles.aiBubble, { backgroundColor: colors.surface }]}>
+              <ActivityIndicator color={colors.aiText} size="small" />
+            </View>
           </View>
         )}
       </ScrollView>
 
-      {/* 빠른 질문 */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll}>
-        {quickQuestions.map((q, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.quickPill, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => setMessage(q)}>
-            <Text style={[styles.quickText, { color: colors.subText }]}>{q}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* 추천 질문 */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll} contentContainerStyle={styles.quickContent}>
+        {quickQuestions.map((q, i) => <Chip key={i} label={q} onPress={() => setMessage(q)} />)}
       </ScrollView>
 
       {/* 입력창 */}
-      <View style={[styles.inputRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.borderInput }]}>
         <TextInput
-          style={[styles.input, { color: colors.text }]}
+          style={[styles.input, type.bodyLarge, { color: colors.textPrimary }]}
           value={message}
           onChangeText={setMessage}
-          placeholder={schoolName ? `${schoolName} 맛집, 학교생활 등 뭐든 물어봐...` : '학교 맛집, 학교생활 등 뭐든 물어봐...'}
-          placeholderTextColor={colors.subText}
+          placeholder="메시지를 입력하세요"
+          placeholderTextColor={colors.textTertiary}
           multiline
+          numberOfLines={1}
           blurOnSubmit
           onSubmitEditing={sendMessage}
           returnKeyType="send"
         />
-        <TouchableOpacity
-          style={[styles.sendBtn, loading && styles.sendBtnDisabled]}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="보내기"
+          style={[styles.sendBtn, { backgroundColor: colors.accentFill }, (loading || !message.trim()) && styles.sendBtnDisabled]}
           onPress={sendMessage}
           disabled={loading}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>↑</Text>
-        </TouchableOpacity>
+          <Feather name="arrow-up" size={20} color={colors.onAccent} />
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   container: { flex: 1 },
+  flex: { flex: 1 },
+  top: { paddingHorizontal: 20, gap: 12 },
   searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 14, marginTop: 10, marginBottom: 6,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1, gap: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    height: 48, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: 14,
   },
-  searchBarIcon: { fontSize: 15 },
-  searchBarText: { flex: 1, fontSize: 13 },
-  searchBarBadge: {
-    backgroundColor: '#7c6fff22', borderRadius: 8,
-    paddingHorizontal: 7, paddingVertical: 3,
-    borderWidth: 1, borderColor: '#7c6fff',
+  todayCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: radius.lg, paddingVertical: 14, paddingHorizontal: 16,
   },
-  searchBarBadgeText: { fontSize: 10, color: '#7c6fff', fontWeight: '800' },
-  weatherBar: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 14, marginTop: 10,
-    borderRadius: 14, padding: 12, marginBottom: 8,
-    borderWidth: 1,
-  },
-  weatherIcon: { fontSize: 22, marginRight: 10 },
-  weatherTemp: { fontSize: 13, fontWeight: '700' },
-  weatherSub: { fontSize: 10 },
-  commute: { fontSize: 12, color: '#3eeea0', fontWeight: '700' },
-  schoolBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-    maxWidth: 140,
-  },
-  schoolBadgeEmoji: { fontSize: 12 },
-  schoolBadgeText: { fontSize: 11, fontWeight: '600', flex: 1 },
-  chat: { flex: 1, paddingHorizontal: 14 },
-  bubble: { maxWidth: '85%', padding: 10, borderRadius: 14, marginBottom: 8 },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: '#7c6fff' },
-  aiBubble: { alignSelf: 'flex-start', borderWidth: 1 },
-  aiLabel: { fontSize: 9, color: '#7c6fff', fontWeight: '700', marginBottom: 4 },
-  bubbleText: { fontSize: 13, lineHeight: 20 },
-  quickScroll: { paddingHorizontal: 14, marginBottom: 8, flexGrow: 0 },
-  quickPill: {
-    borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7, marginRight: 8,
-    borderWidth: 1,
-  },
-  quickText: { fontSize: 11 },
+  todayBar: { width: 4, height: 40, borderRadius: 2 },
+  chat: { flex: 1 },
+  chatContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 12 },
+  aiWrap: { alignSelf: 'flex-start', maxWidth: '85%', gap: 6 },
+  bubble: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.lg },
+  userBubble: { alignSelf: 'flex-end', maxWidth: '80%', borderTopRightRadius: 4 },
+  aiBubble: { borderTopLeftRadius: 4, gap: 10 },
+  mapBtn: { alignSelf: 'flex-start' },
+  quickScroll: { flexGrow: 0, marginBottom: 8 },
+  quickContent: { paddingHorizontal: 20, gap: 8 },
   inputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 14, marginBottom: 20,
-    borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 20, marginBottom: 12,
+    borderRadius: 24, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, borderWidth: 1,
   },
-  input: { flex: 1, fontSize: 13, maxHeight: 80 },
-  sendBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#7c6fff', alignItems: 'center',
-    justifyContent: 'center', marginLeft: 8,
-  },
-  sendBtnDisabled: { opacity: 0.5 },
-  mapBtn: {
-    marginTop: 8, backgroundColor: '#7c6fff',
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6,
-    alignSelf: 'flex-start',
-  },
-  mapBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-});
+  input: { flex: 1, maxHeight: 96, paddingVertical: 6, outlineStyle: 'none' } as any,
+  sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { opacity: 0.4 },
+}));

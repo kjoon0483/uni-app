@@ -30,7 +30,7 @@ export default function SettingsScreen() {
           onPress={() => setMode('dark')}
           activeOpacity={0.7}>
           <View style={s.themeRow}>
-            <View style={[s.themePreview, { backgroundColor: '#07070d', borderColor: '#2a2a40' }]}>
+            <View style={[s.themePreview, { backgroundColor: colors.base, borderColor: colors.borderDefault }]}>
               <Text style={{ fontSize: 18 }}>🌙</Text>
             </View>
             <View style={s.themeInfo}>
@@ -87,7 +87,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors'], mode: string)
     header: { paddingTop: 55, paddingBottom: 24 },
     backBtn: { marginBottom: 12 },
     backText: { color: colors.subText, fontSize: 14 },
-    pageTitle: { fontSize: 22, fontWeight: '900', color: colors.text },
+    pageTitle: { fontSize: 22, fontWeight: '700', color: colors.text },
     card: {
       backgroundColor: colors.card,
       borderRadius: 16,
@@ -97,7 +97,7 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors'], mode: string)
       overflow: 'hidden',
     },
     cardTitle: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '700',
       color: colors.cardTitle,
       paddingHorizontal: 16,
@@ -132,11 +132,11 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors'], mode: string)
       width: 24,
       height: 24,
       borderRadius: 12,
-      backgroundColor: '#7c6fff',
+      backgroundColor: colors.accentFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    checkText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+    checkText: { color: colors.textPrimary, fontSize: 13, fontWeight: '700' },
     infoRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -147,6 +147,6 @@ function makeStyles(colors: ReturnType<typeof useTheme>['colors'], mode: string)
       borderTopColor: colors.border,
     },
     infoLabel: { fontSize: 14, color: colors.rowLabel },
-    infoValue: { fontSize: 14, fontWeight: '600' },
+    infoValue: { fontSize: 14, fontWeight: '500' },
   });
 }

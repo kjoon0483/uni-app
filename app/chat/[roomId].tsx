@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -25,6 +27,8 @@ type Message = {
 };
 
 export default function ChatRoomScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -271,16 +275,16 @@ export default function ChatRoomScreen() {
           <Text style={styles.headerSub}>1:1 대화</Text>
         </View>
         {friendStatus === 'accepted' ? (
-          <View style={[styles.friendBtn, { borderColor: '#3eeea0' }]}>
-            <Text style={[styles.friendBtnText, { color: '#3eeea0' }]}>✓ 친구</Text>
+          <View style={[styles.friendBtn, { borderColor: colors.success }]}>
+            <Text style={[styles.friendBtnText, { color: colors.success }]}>✓ 친구</Text>
           </View>
         ) : friendStatus === 'pending_sent' ? (
-          <View style={[styles.friendBtn, { borderColor: '#666' }]}>
-            <Text style={[styles.friendBtnText, { color: '#888' }]}>요청 중</Text>
+          <View style={[styles.friendBtn, { borderColor: colors.borderStrong }]}>
+            <Text style={[styles.friendBtnText, { color: colors.textSecondary }]}>요청 중</Text>
           </View>
         ) : friendStatus === 'pending_received' ? (
-          <TouchableOpacity style={[styles.friendBtn, { borderColor: '#7c6fff', backgroundColor: '#7c6fff22' }]} onPress={acceptFriendRequest}>
-            <Text style={[styles.friendBtnText, { color: '#a78bfa' }]}>수락하기</Text>
+          <TouchableOpacity style={[styles.friendBtn, { borderColor: colors.accentFill, backgroundColor: colors.accentSubtle }]} onPress={acceptFriendRequest}>
+            <Text style={[styles.friendBtnText, { color: colors.accentText }]}>수락하기</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.friendBtn} onPress={sendFriendRequest}>
@@ -291,7 +295,7 @@ export default function ChatRoomScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color="#7c6fff" />
+          <ActivityIndicator color={colors.accentText} />
         </View>
       ) : (
         <FlatList
@@ -316,7 +320,7 @@ export default function ChatRoomScreen() {
           disabled={uploading}
         >
           {uploading
-            ? <ActivityIndicator color="#7c6fff" size="small" />
+            ? <ActivityIndicator color={colors.accentText} size="small" />
             : <Text style={styles.imageBtnText}>🖼️</Text>
           }
         </TouchableOpacity>
@@ -325,7 +329,7 @@ export default function ChatRoomScreen() {
           value={input}
           onChangeText={setInput}
           placeholder="메시지를 입력하세요..."
-          placeholderTextColor="#44445a"
+          placeholderTextColor={colors.textTertiary}
           multiline
           maxLength={500}
           returnKeyType="send"
@@ -344,7 +348,7 @@ export default function ChatRoomScreen() {
           disabled={!input.trim() || sending}
         >
           {sending ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={colors.onAccent} size="small" />
           ) : (
             <Text style={styles.sendBtnText}>↑</Text>
           )}
@@ -354,28 +358,28 @@ export default function ChatRoomScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
+const useStyles = makeStyles((c) => ({
+  container: { flex: 1, backgroundColor: c.base },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingTop: 55, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#13131a',
+    borderBottomWidth: 1, borderBottomColor: c.borderDefault,
   },
   backBtn: { padding: 4 },
-  backText: { color: '#7c6fff', fontSize: 22, fontWeight: '700' },
+  backText: { color: c.accentText, fontSize: 22, fontWeight: '700' },
   headerInfo: { flex: 1 },
-  headerName: { fontSize: 16, fontWeight: '700', color: '#eee' },
-  headerSub: { fontSize: 11, color: '#555' },
+  headerName: { fontSize: 16, fontWeight: '700', color: c.textPrimary },
+  headerSub: { fontSize: 12, color: c.textTertiary },
   friendBtn: {
     borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#7c6fff44', backgroundColor: '#1a1a2e',
+    borderWidth: 1, borderColor: c.accentSubtle, backgroundColor: c.surface,
   },
-  friendBtnText: { fontSize: 11, color: '#7c6fff', fontWeight: '700' },
+  friendBtnText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   messageList: { paddingHorizontal: 16, paddingVertical: 12, flexGrow: 1 },
   timeLabel: {
-    textAlign: 'center', fontSize: 11, color: '#555',
+    textAlign: 'center', fontSize: 12, color: c.textTertiary,
     marginVertical: 12,
   },
   messageRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 6 },
@@ -383,35 +387,35 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: '72%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10,
   },
-  bubbleMine: { backgroundColor: '#7c6fff', borderBottomRightRadius: 4 },
-  bubbleOther: { backgroundColor: '#1e1e30', borderBottomLeftRadius: 4 },
-  bubbleText: { fontSize: 14, color: '#bbb', lineHeight: 20 },
-  bubbleTextMine: { color: '#fff' },
-  readReceipt: { fontSize: 9, color: '#555', marginHorizontal: 6, marginBottom: 2 },
+  bubbleMine: { backgroundColor: c.accentFill, borderBottomRightRadius: 4 },
+  bubbleOther: { backgroundColor: c.surface, borderBottomLeftRadius: 4 },
+  bubbleText: { fontSize: 14, color: c.textPrimary, lineHeight: 20 },
+  bubbleTextMine: { color: c.onAccent },
+  readReceipt: { fontSize: 12, color: c.textTertiary, marginHorizontal: 6, marginBottom: 2 },
 
   emptyChat: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
-  emptyChatText: { fontSize: 14, color: '#444' },
+  emptyChatText: { fontSize: 14, color: c.textTertiary },
 
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 16, paddingVertical: 12,
-    borderTopWidth: 1, borderTopColor: '#13131a',
-    backgroundColor: '#07070d',
+    borderTopWidth: 1, borderTopColor: c.borderDefault,
+    backgroundColor: c.base,
   },
   input: {
-    flex: 1, color: '#eee', fontSize: 14, lineHeight: 20,
-    backgroundColor: '#13131a', borderRadius: 22,
-    borderWidth: 1, borderColor: '#2a2a40',
+    flex: 1, color: c.textPrimary, fontSize: 14, lineHeight: 20,
+    backgroundColor: c.surface, borderRadius: 22,
+    borderWidth: 1, borderColor: c.borderDefault,
     paddingHorizontal: 16, paddingVertical: 10,
     maxHeight: 120,
   },
   sendBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#7c6fff',
+    backgroundColor: c.accentFill,
     justifyContent: 'center', alignItems: 'center',
   },
-  sendBtnDisabled: { backgroundColor: '#2a2a40' },
-  sendBtnText: { fontSize: 20, color: '#fff', fontWeight: '700' },
+  sendBtnDisabled: { backgroundColor: c.raised },
+  sendBtnText: { fontSize: 20, color: c.onAccent, fontWeight: '700' },
   imageBtn: {
     width: 40, height: 40, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center',
@@ -420,4 +424,4 @@ const styles = StyleSheet.create({
   chatImage: {
     width: 200, height: 200, borderRadius: 12,
   },
-});
+}));

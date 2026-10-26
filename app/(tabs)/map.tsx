@@ -1,3 +1,4 @@
+import { makeStyles } from '@/lib/makeStyles';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -5,6 +6,7 @@ import {
   Linking,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +18,11 @@ import {
 import WebView from 'react-native-webview';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
+import { Feather } from '@expo/vector-icons';
+import Button from '@/components/ui/Button';
+import Chip from '@/components/ui/Chip';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import { categoryColor, radius, type, withAlpha } from '@/constants/design';
 
 const KAKAO_JS_KEY = process.env.EXPO_PUBLIC_KAKAO_JS_KEY ?? '';
 
@@ -31,15 +38,16 @@ const CATEGORIES = [
   { label: '분식',  code: 'FD6',  emoji: '🍢', keyword: '분식' },
 ];
 
+// 지도(밝은 지도 타일) 위 마커 색: 분류색(info)의 라이트 값. 앱 화면 안에서는 categoryColor() 사용
 const CAT_COLORS: Record<string, string> = {
-  한식: '#FF6B6B',
-  중식: '#FF8C42',
-  일식: '#4ECDC4',
-  양식: '#45B7D1',
-  카페: '#6BCB77',
-  술집: '#C77DFF',
-  분식: '#FFD166',
-  기타: '#7c6fff',
+  한식: '#C25E28',
+  중식: '#C23E7C',
+  일식: '#1F7FC2',
+  양식: '#5F8A10',
+  카페: '#9A7A1A',
+  술집: '#7A55D6',
+  분식: '#0F8C80',
+  기타: '#65656F',
 };
 
 const CAT_EMOJIS: Record<string, string> = {
@@ -412,6 +420,7 @@ function PlaceDetailSheet({
   onClose: () => void;
   colors: any;
 }) {
+  const sheetStyles = useSheetStyles();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [myRating, setMyRating] = useState(0);
   const [myReview, setMyReview] = useState('');
@@ -478,7 +487,7 @@ function PlaceDetailSheet({
     setSubmitting(false);
   };
 
-  const catColor = place ? (CAT_COLORS[place.categorySimple] ?? '#7c6fff') : '#7c6fff';
+  const catColor = categoryColor(place?.categorySimple, colors);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -495,7 +504,7 @@ function PlaceDetailSheet({
             <View style={sheetStyles.headerRow}>
               <View style={sheetStyles.headerLeft}>
                 <View style={[sheetStyles.catDot, { backgroundColor: catColor }]}>
-                  <Text style={sheetStyles.catDotEmoji}>{CAT_EMOJIS[place.categorySimple] ?? '🍽️'}</Text>
+                  <Feather name="map-pin" size={20} color={catColor} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[sheetStyles.sheetPlaceName, { color: colors.text }]} numberOfLines={2}>
@@ -557,7 +566,7 @@ function PlaceDetailSheet({
             <View style={sheetStyles.starInputRow}>
               {[1, 2, 3, 4, 5].map(n => (
                 <TouchableOpacity key={n} onPress={() => setMyRating(n)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-                  <Text style={[sheetStyles.starBtn, { color: myRating >= n ? '#FFD166' : colors.border }]}>★</Text>
+                  <Text style={[sheetStyles.starBtn, { color: myRating >= n ? colors.warning : colors.borderStrong }]}>★</Text>
                 </TouchableOpacity>
               ))}
               {myRating > 0 && (
@@ -581,7 +590,7 @@ function PlaceDetailSheet({
               onPress={handleSubmit}
               disabled={myRating === 0 || submitting}>
               {submitting
-                ? <ActivityIndicator color="#fff" size="small" />
+                ? <ActivityIndicator color={colors.onAccent} size="small" />
                 : <Text style={sheetStyles.submitBtnText}>{hasMyReview ? '수정하기' : '리뷰 등록'}</Text>}
             </TouchableOpacity>
 
@@ -590,11 +599,11 @@ function PlaceDetailSheet({
               <>
                 <Text style={[sheetStyles.sectionTitle, { color: colors.text }]}>리뷰 목록</Text>
                 {loadingReviews
-                  ? <ActivityIndicator color="#7c6fff" style={{ marginVertical: 16 }} />
+                  ? <ActivityIndicator color={colors.accentText} style={{ marginVertical: 16 }} />
                   : reviews.map(r => (
                     <View key={r.id} style={[sheetStyles.reviewCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
                       <View style={sheetStyles.reviewCardHeader}>
-                        <Text style={[sheetStyles.reviewStars, { color: '#FFD166' }]}>{'★'.repeat(r.rating)}<Text style={{ color: colors.border }}>{'★'.repeat(5 - r.rating)}</Text></Text>
+                        <Text style={[sheetStyles.reviewStars, { color: colors.warning }]}>{'★'.repeat(r.rating)}<Text style={{ color: colors.border }}>{'★'.repeat(5 - r.rating)}</Text></Text>
                         <Text style={[sheetStyles.reviewDate, { color: colors.subText }]}>
                           {new Date(r.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
                         </Text>
@@ -628,6 +637,8 @@ function RegisterModal({
   schoolName: string;
   location: { lat: number; lng: number } | null;
 }) {
+  const sheetStyles = useSheetStyles();
+  const regStyles = useRegStyles();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Place[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
@@ -713,33 +724,33 @@ function RegisterModal({
                   <Text style={regStyles.searchBtnText}>검색</Text>
                 </TouchableOpacity>
               </View>
-              {searching && <ActivityIndicator color="#7c6fff" style={{ marginVertical: 12 }} />}
+              {searching && <ActivityIndicator color={colors.accentText} style={{ marginVertical: 12 }} />}
               {error ? <Text style={regStyles.error}>{error}</Text> : null}
               {searchResults.map(p => (
                 <TouchableOpacity
                   key={p.id}
                   style={[regStyles.resultItem, { backgroundColor: colors.bg, borderColor: colors.border }]}
                   onPress={() => setSelected(p)}>
-                  <Text style={{ fontSize: 22 }}>{CAT_EMOJIS[p.categorySimple] ?? '🍽️'}</Text>
+                  <Feather name="map-pin" size={20} color={categoryColor(p.categorySimple, colors)} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }} numberOfLines={1}>{p.name}</Text>
-                    {p.address ? <Text style={{ fontSize: 11, marginTop: 2, color: colors.subText }} numberOfLines={1}>{p.address}</Text> : null}
-                    <Text style={{ fontSize: 11, color: CAT_COLORS[p.categorySimple] ?? '#7c6fff', fontWeight: '600', marginTop: 2 }}>{p.categorySimple}</Text>
+                    {p.address ? <Text style={{ fontSize: 12, marginTop: 2, color: colors.subText }} numberOfLines={1}>{p.address}</Text> : null}
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '500', marginTop: 2 }}>{p.categorySimple}</Text>
                   </View>
-                  <Text style={{ color: '#7c6fff', fontSize: 18 }}>›</Text>
+                  <Text style={{ color: colors.accentText, fontSize: 18 }}>›</Text>
                 </TouchableOpacity>
               ))}
             </>
           ) : (
             <>
-              <View style={[regStyles.selectedCard, { backgroundColor: colors.bg, borderColor: '#7c6fff' }]}>
-                <Text style={{ fontSize: 28 }}>{CAT_EMOJIS[selected.categorySimple] ?? '🍽️'}</Text>
+              <View style={[regStyles.selectedCard, { backgroundColor: colors.bg, borderColor: colors.accentFill }]}>
+                <Feather name="map-pin" size={24} color={categoryColor(selected.categorySimple, colors)} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>{selected.name}</Text>
-                  {selected.address ? <Text style={{ fontSize: 11, color: colors.subText, marginTop: 2 }}>{selected.address}</Text> : null}
+                  {selected.address ? <Text style={{ fontSize: 12, color: colors.subText, marginTop: 2 }}>{selected.address}</Text> : null}
                 </View>
                 <TouchableOpacity onPress={() => setSelected(null)}>
-                  <Text style={{ color: '#7c6fff', fontSize: 13, fontWeight: '600' }}>변경</Text>
+                  <Text style={{ color: colors.accentText, fontSize: 13, fontWeight: '500' }}>변경</Text>
                 </TouchableOpacity>
               </View>
               <TextInput
@@ -755,8 +766,8 @@ function RegisterModal({
               {error ? <Text style={regStyles.error}>{error}</Text> : null}
               <TouchableOpacity style={regStyles.registerBtn} onPress={doRegister} disabled={submitting}>
                 {submitting
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={regStyles.registerBtnText}>등록하기 ✓</Text>}
+                  ? <ActivityIndicator color={colors.onAccent} size="small" />
+                  : <Text style={regStyles.registerBtnText}>등록하기</Text>}
               </TouchableOpacity>
             </>
           )}
@@ -769,6 +780,7 @@ function RegisterModal({
 
 // ── 화면 ────────────────────────────────────────────────────
 export default function MapScreen() {
+  const styles = useStyles();
   const { colors } = useTheme();
   const { category, query: aiQuery, t: aiTimestamp } = useLocalSearchParams<{ category?: string; query?: string; t?: string }>();
   const webViewRef = useRef<WebView>(null);
@@ -1009,71 +1021,40 @@ export default function MapScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
 
-      {/* 검색바 + 카테고리 */}
-      <View style={[styles.topSection, { backgroundColor: colors.bg }]}>
-        <View style={[styles.searchRow, { alignItems: 'center' }]}>
-          <View style={[styles.schoolBadge, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}>
-            <Text style={styles.schoolEmoji}>🏫</Text>
-            <Text style={[styles.schoolName, { color: colors.text }]} numberOfLines={1}>
-              {schoolQuery || '학교 정보 없음'}
-            </Text>
-            {loading && <ActivityIndicator color="#7c6fff" size="small" style={{ marginLeft: 8 }} />}
-          </View>
-          <TouchableOpacity
-            style={[styles.searchBtn, { marginLeft: 8 }]}
-            onPress={search}
-            disabled={loading || !schoolQuery}>
-            <Text style={styles.searchBtnText}>검색</Text>
-          </TouchableOpacity>
-        </View>
+      <ScreenHeader
+        eyebrow={schoolQuery ? `${schoolQuery} 주변` : '학교 정보 없음'}
+        onEyebrowPress={schoolQuery && !loading ? search : undefined}
+        title="맛집"
+      />
 
-        {/* 음식점 이름 검색 */}
-        <View style={[styles.nameSearchRow, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 14, marginBottom: 8 }]}>
-          <Text>🍽️ </Text>
-          <TextInput
-            style={[styles.nameSearchInput, { color: colors.text }]}
-            placeholder="음식점 이름으로 검색"
-            placeholderTextColor={colors.subText}
-            value={nameQuery}
-            onChangeText={setNameQuery}
-            onSubmitEditing={searchByName}
-            returnKeyType="search"
-          />
-          {nameQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setNameQuery('')}>
-              <Text style={{ color: colors.subText, fontSize: 16 }}>✕</Text>
-            </TouchableOpacity>
+      {/* 음식점 이름 검색 */}
+      <View style={[styles.searchField, { backgroundColor: colors.surface, borderColor: colors.borderInput }]}>
+        <Feather name="search" size={20} color={colors.textTertiary} />
+        <TextInput
+          style={[type.bodyMedium, styles.searchInput, { color: colors.textPrimary }]}
+          placeholder="음식점 이름으로 검색"
+          placeholderTextColor={colors.textTertiary}
+          value={nameQuery}
+          onChangeText={setNameQuery}
+          onSubmitEditing={searchByName}
+          returnKeyType="search"
+        />
+        {loading
+          ? <ActivityIndicator color={colors.accentText} size="small" />
+          : nameQuery.length > 0 && (
+            <Pressable onPress={() => setNameQuery('')} hitSlop={8} accessibilityLabel="검색어 지우기">
+              <Feather name="x" size={18} color={colors.textTertiary} />
+            </Pressable>
           )}
-          <TouchableOpacity
-            style={[styles.searchBtn, { marginLeft: 6 }]}
-            onPress={searchByName}
-            disabled={loading}>
-            <Text style={styles.searchBtnText}>검색</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          style={styles.catScroll}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
-          {CATEGORIES.map(cat => (
-            <TouchableOpacity
-              key={cat.label}
-              style={[
-                styles.catChip,
-                { backgroundColor: colors.card, borderColor: colors.border },
-                selectedCat.label === cat.label && styles.catChipActive,
-              ]}
-              onPress={() => setSelectedCat(cat)}>
-              <Text style={styles.catEmoji}>{cat.emoji}</Text>
-              <Text style={[
-                styles.catText,
-                { color: colors.subText },
-                selectedCat.label === cat.label && styles.catTextActive,
-              ]}>{cat.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={styles.catScroll}
+        contentContainerStyle={styles.catContent}>
+        {CATEGORIES.map(cat => (
+          <Chip key={cat.label} label={cat.label} selected={selectedCat.label === cat.label} onPress={() => setSelectedCat(cat)} />
+        ))}
+      </ScrollView>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
 
@@ -1088,7 +1069,7 @@ export default function MapScreen() {
           })
         ) : !KAKAO_JS_KEY ? (
           <View style={[styles.mapPlaceholder, { backgroundColor: colors.card }]}>
-            <Text style={styles.mapPlaceholderEmoji}>🗺️</Text>
+            <Feather name="map" size={32} color={colors.textTertiary} />
             <Text style={[styles.mapPlaceholderText, { color: colors.subText }]}>KAKAO_JS_KEY를 설정해주세요</Text>
           </View>
         ) : (
@@ -1116,73 +1097,73 @@ export default function MapScreen() {
       {/* 맛집 리스트 */}
       <View style={styles.listSection}>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={[type.bodyMedium, styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
 
         {!location && !loading && (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🗺️</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>학교를 검색해보세요</Text>
-            <Text style={[styles.emptySub, { color: colors.subText }]}>
-              학교 이름 검색 후 주변 맛집이{'\n'}지도와 리스트로 나타나요
+            <View style={[styles.emptyIcon, { backgroundColor: colors.accentSubtle }]}>
+              <Feather name="map" size={28} color={colors.accentText} />
+            </View>
+            <Text style={[type.titleSmall, { color: colors.textPrimary }]}>학교를 검색해보세요</Text>
+            <Text style={[type.bodyMedium, styles.center, { color: colors.textSecondary }]}>
+              학교 주변 맛집이 지도와 리스트로 나타나요
             </Text>
           </View>
         )}
 
         {location && (
           <>
-            <Text style={[styles.listCount, { color: colors.subText }]}>
-              {selectedCat.emoji} {selectedCat.label} {filtered.length}곳
-            </Text>
-            {filtered.map(place => (
-              <TouchableOpacity
-                key={place.id}
-                style={[
-                  styles.placeCard,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                  selectedPlace?.id === place.id && styles.placeCardActive,
-                ]}
-                onPress={() => openDetail(place)}>
-                <View style={[styles.placeEmojiBox, { backgroundColor: colors.bg, borderColor: CAT_COLORS[place.categorySimple] ?? colors.border }]}>
-                  <Text style={styles.placeEmoji}>{CAT_EMOJIS[place.categorySimple] ?? '🍽️'}</Text>
-                </View>
-                <View style={styles.placeInfo}>
-                  <View style={styles.placeTopRow}>
-                    <Text style={[styles.placeName, { color: colors.text }]} numberOfLines={1}>{place.name}</Text>
-                    <View style={[styles.catBadge, { backgroundColor: (CAT_COLORS[place.categorySimple] ?? '#7c6fff') + '22' }]}>
-                      <Text style={[styles.catBadgeText, { color: CAT_COLORS[place.categorySimple] ?? '#7c6fff' }]}>
-                        {place.categoryDetail || place.categorySimple}
-                      </Text>
-                    </View>
+            <View style={styles.listHeader}>
+              <Text style={[type.titleSmall, { color: colors.textPrimary }]}>
+                {selectedCat.label === '전체' ? '주변 맛집' : selectedCat.label} {filtered.length}곳
+              </Text>
+            </View>
+            {filtered.map(place => {
+              const cat = categoryColor(place.categorySimple, colors);
+              const active = selectedPlace?.id === place.id;
+              return (
+                <Pressable
+                  key={place.id}
+                  style={({ pressed }) => [
+                    styles.placeCard,
+                    { backgroundColor: colors.surface },
+                    active && { borderColor: colors.accentFill, borderWidth: 1.5 },
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() => openDetail(place)}>
+                  <View style={[styles.placeIcon, { backgroundColor: withAlpha(cat, 0.16) }]}>
+                    <Feather name="map-pin" size={22} color={cat} />
                   </View>
-                  {place.address ? (
-                    <Text style={[styles.placeAddr, { color: colors.subText }]} numberOfLines={1}>📍 {place.address}</Text>
-                  ) : null}
-                  {place.phone ? (
-                    <Text style={[styles.placePhone, { color: colors.subText }]}>📞 {place.phone}</Text>
-                  ) : null}
-                  {place.source === 'registered' && (
-                    <View style={styles.regBadge}>
-                      <Text style={styles.regBadgeText}>⭐ 학생 추천</Text>
+                  <View style={styles.placeInfo}>
+                    <View style={styles.placeTopRow}>
+                      <Text style={[type.labelLarge, styles.flexShrink, { color: colors.textPrimary }]} numberOfLines={1}>{place.name}</Text>
+                      {place.source === 'registered' && (
+                        <View style={[styles.regBadge, { backgroundColor: colors.accentSubtle }]}>
+                          <Text style={[type.labelSmall, { color: colors.accentText }]}>학생 추천</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                  <Text style={[styles.tapHint, { color: colors.subText }]}>탭하여 리뷰 · 평점 보기 →</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                    <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {place.categoryDetail || place.categorySimple}
+                    </Text>
+                    {place.address ? (
+                      <Text style={[type.caption, { color: colors.textTertiary }]} numberOfLines={1}>{place.address}</Text>
+                    ) : null}
+                  </View>
+                  <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+                </Pressable>
+              );
+            })}
           </>
         )}
 
-        <View style={{ height: 30 }} />
+        <View style={{ height: 88 }} />
       </View>
 
       </ScrollView>
 
-      {/* 맛집 등록 플로팅 버튼 */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setRegisterVisible(true)}>
-        <Text style={styles.fabText}>+ 맛집 등록</Text>
-      </TouchableOpacity>
+      {/* 맛집 등록 */}
+      <Button label="맛집 등록" icon="plus" onPress={() => setRegisterVisible(true)} style={styles.fab} />
 
       {/* 장소 상세 하단 시트 */}
       <PlaceDetailSheet
@@ -1209,7 +1190,7 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   container: { flex: 1 },
 
   topSection: { paddingTop: 10 },
@@ -1217,35 +1198,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 8,
     paddingHorizontal: 16, marginBottom: 10,
   },
-  searchInput: {
-    flex: 1, borderRadius: 12, borderWidth: 1,
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 14,
-  },
+  searchInput: { flex: 1, paddingVertical: 0, outlineStyle: 'none' } as any,
   searchBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 12,
+    backgroundColor: c.accentFill, borderRadius: 12,
     paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minWidth: 60,
   },
-  searchBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  searchBtnText: { color: c.onAccent, fontSize: 14, fontWeight: '700' },
   schoolBadge: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 12, borderWidth: 1,
     paddingHorizontal: 14, paddingVertical: 11, gap: 8,
   },
   schoolEmoji: { fontSize: 16 },
-  schoolName: { fontSize: 14, fontWeight: '600', flex: 1 },
+  schoolName: { fontSize: 14, fontWeight: '500', flex: 1 },
 
-  catScroll: { flexGrow: 0, marginBottom: 10 },
+  catScroll: { flexGrow: 0, marginBottom: 12 },
   catChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: 20, borderWidth: 1,
   },
-  catChipActive: { backgroundColor: '#7c6fff', borderColor: '#7c6fff' },
+  catChipActive: { backgroundColor: c.accentFill, borderColor: c.accentFill },
   catEmoji: { fontSize: 13 },
-  catText: { fontSize: 12, fontWeight: '600' },
-  catTextActive: { color: '#fff' },
+  catText: { fontSize: 12, fontWeight: '500' },
+  catTextActive: { color: c.onAccent },
 
-  mapWrap: { height: 320, marginHorizontal: 16, marginBottom: 10, borderRadius: 16, overflow: 'hidden' },
+  mapWrap: { height: 220, marginHorizontal: 20, marginBottom: 16, borderRadius: radius.lg, overflow: 'hidden' },
   map: { flex: 1 },
   mapPlaceholder: {
     flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16,
@@ -1253,61 +1231,52 @@ const styles = StyleSheet.create({
   mapPlaceholderEmoji: { fontSize: 40, marginBottom: 8 },
   mapPlaceholderText: { fontSize: 13 },
 
-  listSection: { paddingHorizontal: 16 },
+  listSection: { paddingHorizontal: 20, gap: 12 },
   nameSearchRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderRadius: 12, borderWidth: 1,
     paddingHorizontal: 12, paddingVertical: 9, marginBottom: 10,
   },
   nameSearchInput: { flex: 1, fontSize: 13 },
-  errorText: { fontSize: 13, color: '#ff6b6b', textAlign: 'center', marginBottom: 8 },
+  errorText: { textAlign: 'center' },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 24, gap: 4 },
   emptyEmoji: { fontSize: 52, marginBottom: 14 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
   emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
 
   listCount: { fontSize: 12, marginBottom: 8 },
-  placeCard: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    borderRadius: 14, borderWidth: 1,
-    padding: 14, marginBottom: 10, gap: 14,
-  },
-  placeCardActive: { borderColor: '#7c6fff', borderWidth: 2 },
+  placeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.lg, padding: 14, borderWidth: 1.5, borderColor: 'transparent' },
+  placeCardActive: { borderColor: c.accentFill, borderWidth: 2 },
   placeEmojiBox: {
     width: 48, height: 48, borderRadius: 12,
     borderWidth: 2, alignItems: 'center', justifyContent: 'center',
     marginTop: 2, flexShrink: 0,
   },
   placeEmoji: { fontSize: 24 },
-  placeInfo: { flex: 1 },
-  placeTopRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 4,
-  },
+  placeInfo: { flex: 1, gap: 2 },
+  placeTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   placeName: { fontSize: 14, fontWeight: '700', flex: 1, marginRight: 6 },
   catBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  catBadgeText: { fontSize: 10, fontWeight: '700' },
-  placeAddr: { fontSize: 11, marginTop: 2 },
-  placePhone: { fontSize: 11, marginTop: 2 },
-  tapHint: { fontSize: 10, marginTop: 5 },
-  regBadge: {
-    backgroundColor: '#7c6fff22', borderRadius: 6,
-    paddingHorizontal: 6, paddingVertical: 2,
-    alignSelf: 'flex-start', marginTop: 4,
-  },
-  regBadgeText: { fontSize: 10, color: '#7c6fff', fontWeight: '700' },
-  fab: {
-    position: 'absolute', bottom: 24, right: 16,
-    backgroundColor: '#7c6fff', borderRadius: 24,
-    paddingHorizontal: 18, paddingVertical: 11,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25, shadowRadius: 8, elevation: 8,
-  },
-  fabText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-});
+  catBadgeText: { fontSize: 12, fontWeight: '700' },
+  placeAddr: { fontSize: 12, marginTop: 2 },
+  placePhone: { fontSize: 12, marginTop: 2 },
+  tapHint: { fontSize: 12, marginTop: 5 },
+  regBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
+  regBadgeText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
+  fab: { position: 'absolute', right: 20, bottom: 16, borderRadius: 26, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
+  fabText: { color: c.textPrimary, fontSize: 14, fontWeight: '700' },
+  catContent: { paddingHorizontal: 20, gap: 8 },
+  searchField: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, marginHorizontal: 20, marginBottom: 12, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1 },
+  listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  center: { textAlign: 'center' },
+  pressed: { opacity: 0.85 },
+  flexShrink: { flexShrink: 1 },
+  placeIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+}));
 
-const sheetStyles = StyleSheet.create({
+const useSheetStyles = makeStyles((c) => ({
   backdrop: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.35)',
   },
@@ -1333,9 +1302,9 @@ const sheetStyles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   catDotEmoji: { fontSize: 24 },
-  sheetPlaceName: { fontSize: 17, fontWeight: '800', marginBottom: 4 },
+  sheetPlaceName: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
   catBadge: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  catBadgeText: { fontSize: 11, fontWeight: '700' },
+  catBadgeText: { fontSize: 12, fontWeight: '700' },
   closeBtn: { padding: 4 },
   closeBtnText: { fontSize: 18 },
 
@@ -1343,7 +1312,7 @@ const sheetStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     padding: 12, borderRadius: 12, marginBottom: 12,
   },
-  ratingBig: { fontSize: 22, fontWeight: '800' },
+  ratingBig: { fontSize: 22, fontWeight: '700' },
   ratingCount: { fontSize: 13 },
   noReviewText: { fontSize: 13 },
 
@@ -1361,7 +1330,7 @@ const sheetStyles = StyleSheet.create({
   },
   kakaoMapBtnText: { fontSize: 13, fontWeight: '700', color: '#3C1E1E' },
 
-  sectionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 10, marginTop: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 10, marginTop: 4 },
 
   starInputRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 },
   starBtn: { fontSize: 34 },
@@ -1373,10 +1342,10 @@ const sheetStyles = StyleSheet.create({
     marginBottom: 10,
   },
   submitBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 12,
+    backgroundColor: c.accentFill, borderRadius: 12,
     paddingVertical: 13, alignItems: 'center', marginBottom: 20,
   },
-  submitBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  submitBtnText: { color: c.onAccent, fontSize: 14, fontWeight: '700' },
 
   reviewCard: {
     borderWidth: 1, borderRadius: 12,
@@ -1384,11 +1353,11 @@ const sheetStyles = StyleSheet.create({
   },
   reviewCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   reviewStars: { fontSize: 16, fontWeight: '700' },
-  reviewDate: { fontSize: 11 },
+  reviewDate: { fontSize: 12 },
   reviewBody: { fontSize: 13, lineHeight: 18 },
-});
+}));
 
-const regStyles = StyleSheet.create({
+const useRegStyles = makeStyles((c) => ({
   sheet: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
@@ -1400,7 +1369,7 @@ const regStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 14,
   },
-  title: { fontSize: 17, fontWeight: '800' },
+  title: { fontSize: 17, fontWeight: '700' },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderRadius: 12, borderWidth: 1,
@@ -1408,10 +1377,10 @@ const regStyles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 13 },
   searchBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 10,
+    backgroundColor: c.accentFill, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 8,
   },
-  searchBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  searchBtnText: { color: c.onAccent, fontSize: 13, fontWeight: '700' },
   resultItem: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 8,
@@ -1425,9 +1394,9 @@ const regStyles = StyleSheet.create({
     fontSize: 13, minHeight: 80, marginBottom: 12,
   },
   registerBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 12,
+    backgroundColor: c.accentFill, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center', marginBottom: 8,
   },
-  registerBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  error: { fontSize: 13, color: '#ff6b6b', marginBottom: 8 },
-});
+  registerBtnText: { color: c.onAccent, fontSize: 15, fontWeight: '700' },
+  error: { fontSize: 13, color: c.danger, marginBottom: 8 },
+}));

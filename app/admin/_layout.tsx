@@ -1,9 +1,11 @@
+import { useTheme } from '@/lib/ThemeContext';
 import { Stack, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 export default function AdminLayout() {
+  const { colors } = useTheme();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -27,8 +29,8 @@ export default function AdminLayout() {
 
   if (checking) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#07070d', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#7c6fff" />
+      <View style={{ flex: 1, backgroundColor: colors.base, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color={colors.accentText} />
       </View>
     );
   }

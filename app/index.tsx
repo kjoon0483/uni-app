@@ -1,8 +1,10 @@
+import { makeStyles } from '@/lib/makeStyles';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
 export default function SplashScreen() {
+  const styles = useStyles();
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
 
@@ -39,30 +41,30 @@ export default function SplashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   container: {
-    flex: 1, backgroundColor: '#07070d',
+    flex: 1, backgroundColor: c.base,
     alignItems: 'center', justifyContent: 'center',
   },
   glow: {
     position: 'absolute',
     width: 300, height: 300, borderRadius: 150,
-    backgroundColor: 'rgba(124,111,255,0.12)',
+    backgroundColor: c.accentSubtle,
     top: '30%',
   },
   center: { alignItems: 'center' },
   orb: {
     width: 100, height: 100, borderRadius: 50,
-    backgroundColor: '#7c6fff',
+    backgroundColor: c.accentFill,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 24,
-    shadowColor: '#7c6fff',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8, shadowRadius: 30, elevation: 20,
+    shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
   },
-  orbSymbol: { fontSize: 36, color: '#fff' },
-  logo: { fontSize: 52, fontWeight: '900', color: '#fff', letterSpacing: 2 },
-  logoStar: { fontSize: 20, color: '#7c6fff', marginTop: -8, marginBottom: 12 },
-  tagline: { fontSize: 16, color: '#888', letterSpacing: 1 },
-  bottom: { position: 'absolute', bottom: 40, fontSize: 12, color: '#333' },
-});
+  orbSymbol: { fontSize: 36, color: c.onAccent },
+  logo: { fontSize: 52, fontWeight: '700', color: c.textPrimary, letterSpacing: 2 },
+  logoStar: { fontSize: 20, color: c.accentText, marginTop: -8, marginBottom: 12 },
+  tagline: { fontSize: 16, color: c.textSecondary, letterSpacing: 1 },
+  bottom: { position: 'absolute', bottom: 40, fontSize: 12, color: c.textTertiary },
+}));

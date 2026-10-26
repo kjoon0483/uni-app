@@ -1,16 +1,22 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
-  StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Button from '@/components/ui/Button';
+import OnboardingNav from '@/components/ui/OnboardingNav';
+import TextField from '@/components/ui/TextField';
+import { radius, type } from '@/constants/design';
 
 const KAKAO_REST_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY ?? '';
 
@@ -40,10 +46,14 @@ const searchSchools = async (query: string): Promise<School[]> => {
 };
 
 export default function SchoolScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<School[]>([]);
   const [selected, setSelected] = useState<School | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!query.trim()) { setResults([]); return; }
@@ -66,187 +76,114 @@ export default function SchoolScreen() {
     handleSelect({ name: query.trim(), region: '직접 입력', emoji: '🏫' });
   };
 
+  const confirm = async () => {
+    if (!selected) return;
+    setSaving(true);
+    await AsyncStorage.setItem('selected_school', JSON.stringify(selected));
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('profiles').update({ school: selected.name }).eq('id', user.id);
+    }
+    setSaving(false);
+    router.back();
+  };
+
   return (
-    <View style={styles.container}>
-      {/* 헤더 */}
+    <View style={[styles.container, { backgroundColor: colors.base, paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
+      <OnboardingNav step={2} onBack={() => router.back()} />
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>← 뒤로</Text>
-        </TouchableOpacity>
-
-        <View style={styles.stepRow}>
-          {[1, 2, 3, 4].map((s) => (
-            <View key={s} style={[styles.stepDot, s <= 2 && styles.stepDotActive]} />
-          ))}
-        </View>
-
-        <Text style={styles.title}>어느 학교에 다니세요?</Text>
-        <Text style={styles.sub}>학교에 맞는 AI 맞춤 서비스를 제공해요</Text>
-
-        {/* 검색창 */}
-        <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="학교 이름 검색"
-            placeholderTextColor="#44445a"
-            value={query}
-            onChangeText={v => { setQuery(v); setSelected(null); }}
-            autoCorrect={false}
-          />
-          {loading && <ActivityIndicator size="small" color="#7c6fff" />}
-          {query.length > 0 && !loading && (
-            <TouchableOpacity onPress={() => { setQuery(''); setResults([]); }}>
-              <Text style={{ color: '#555', fontSize: 16 }}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>어느 학교에 다니세요?</Text>
+        <Text style={[type.bodyLarge, { color: colors.textSecondary }]}>학교에 맞춘 AI 답변과 커뮤니티를 열어드려요</Text>
+        <TextField
+          icon="search"
+          placeholder="학교 이름 검색"
+          value={query}
+          onChangeText={v => { setQuery(v); setSelected(null); }}
+          autoCorrect={false}
+          containerStyle={styles.search}
+          right={loading
+            ? <ActivityIndicator size="small" color={colors.accentText} />
+            : query.length > 0 ? (
+              <Pressable onPress={() => { setQuery(''); setResults([]); }} hitSlop={8} accessibilityLabel="검색어 지우기">
+                <Feather name="x" size={18} color={colors.textTertiary} />
+              </Pressable>
+            ) : null}
+        />
       </View>
 
-      <ScrollView style={styles.list} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-        {/* 검색 결과 */}
-        {!selected && results.map((school, i) => (
-          <TouchableOpacity
-            key={i}
-            style={styles.schoolCard}
-            onPress={() => handleSelect(school)}>
-            <Text style={styles.schoolEmoji}>{school.emoji}</Text>
-            <View style={styles.schoolInfo}>
-              <Text style={styles.schoolName}>{school.name}</Text>
-              <Text style={styles.schoolRegion}>📍 {school.region}</Text>
+      <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {selected ? (
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <View style={styles.row}>
+              <View style={styles.flex}>
+                <Text style={[type.labelLarge, { color: colors.textPrimary }]}>{selected.name}</Text>
+                <Text style={[type.caption, { color: colors.textTertiary }]}>{selected.region}</Text>
+              </View>
+              <View style={[styles.checkCircle, { backgroundColor: colors.accentFill }]}>
+                <Feather name="check" size={16} color={colors.onAccent} />
+              </View>
             </View>
-            <Text style={styles.schoolArrow}>›</Text>
-          </TouchableOpacity>
-        ))}
+          </View>
+        ) : results.length > 0 ? (
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            {results.map((school, i) => (
+              <Pressable key={i}
+                style={({ pressed }) => [styles.row, i > 0 && { borderTopWidth: 1, borderTopColor: colors.borderDefault }, pressed && { backgroundColor: colors.raised }]}
+                onPress={() => handleSelect(school)}>
+                <View style={styles.flex}>
+                  <Text style={[type.labelLarge, { color: colors.textPrimary }]}>{school.name}</Text>
+                  <Text style={[type.caption, { color: colors.textTertiary }]}>{school.region}</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
-        {/* 결과 없을 때 직접 입력 */}
+        {/* 목록에 없을 때 직접 입력 */}
         {!selected && query.trim().length > 0 && !loading && results.length === 0 && (
-          <TouchableOpacity style={styles.customCard} onPress={handleCustom}>
-            <Text style={styles.schoolEmoji}>🏫</Text>
-            <View style={styles.schoolInfo}>
-              <Text style={styles.customName}>"{query.trim()}" 직접 입력</Text>
-              <Text style={styles.customSub}>목록에 없는 학교도 사용할 수 있어요</Text>
+          <Pressable style={[styles.custom, { borderColor: colors.borderStrong }]} onPress={handleCustom}>
+            <Feather name="plus" size={20} color={colors.textSecondary} />
+            <View style={styles.flex}>
+              <Text style={[type.labelLarge, { color: colors.textPrimary }]}>{`“${query.trim()}” 직접 입력`}</Text>
+              <Text style={[type.caption, { color: colors.textTertiary }]}>목록에 없는 학교도 사용할 수 있어요</Text>
             </View>
-            <Text style={styles.schoolArrow}>›</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
 
         {/* 검색 전 안내 */}
         {!selected && query.trim().length === 0 && (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🎓</Text>
-            <Text style={styles.emptyText}>학교 이름을 검색해보세요</Text>
-            <Text style={styles.emptySub}>전국 모든 대학교를 검색할 수 있어요</Text>
+            <Feather name="search" size={28} color={colors.textTertiary} />
+            <Text style={[type.bodyMedium, { color: colors.textSecondary }]}>전국 모든 대학교를 검색할 수 있어요</Text>
           </View>
         )}
-
-        {/* 선택된 학교 */}
-        {selected && (
-          <View>
-            <View style={styles.selectedCard}>
-              <View style={styles.selectedLeft}>
-                <Text style={styles.selectedEmoji}>{selected.emoji}</Text>
-                <View>
-                  <Text style={styles.selectedName}>{selected.name}</Text>
-                  <Text style={styles.selectedRegion}>📍 {selected.region}</Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => setSelected(null)} style={styles.changeBtn}>
-                <Text style={styles.changeBtnText}>변경</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.nextBtn}
-              onPress={async () => {
-                await AsyncStorage.setItem('selected_school', JSON.stringify(selected));
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                  await supabase.from('profiles').update({ school: selected.name }).eq('id', user.id);
-                }
-                router.back();
-              }}>
-              <Text style={styles.nextBtnText}>다음 →</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
+
+      <View style={styles.bottom}>
+        <Button label="다음" fullWidth disabled={!selected} loading={saving} onPress={confirm} />
+        {selected && <Button label="다른 학교 선택" variant="ghost" size="M" fullWidth onPress={() => setSelected(null)} />}
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
-  header: { paddingHorizontal: 20, paddingTop: 55, paddingBottom: 12 },
-  backText: { color: '#555', fontSize: 14, marginBottom: 16 },
-  stepRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  stepDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#2a2a40' },
-  stepDotActive: { backgroundColor: '#7c6fff' },
-  title: { fontSize: 24, fontWeight: '900', color: '#fff', marginBottom: 8 },
-  sub: { fontSize: 13, color: '#888', marginBottom: 14 },
-
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#13131a', borderRadius: 14,
-    borderWidth: 1, borderColor: '#2a2a40',
-    paddingHorizontal: 14, paddingVertical: 12, gap: 10,
+const useStyles = makeStyles(() => ({
+  container: { flex: 1 },
+  flex: { flex: 1 },
+  header: { paddingHorizontal: 20, paddingTop: 24, gap: 8 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
+  search: { marginTop: 16 },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, gap: 12 },
+  card: { borderRadius: radius.lg, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16 },
+  checkCircle: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  custom: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', paddingVertical: 14, paddingHorizontal: 16,
   },
-  searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, color: '#eee', fontSize: 14 },
-
-  list: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
-
-  schoolCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#13131a', borderRadius: 14,
-    borderWidth: 1, borderColor: '#2a2a40',
-    padding: 14, marginBottom: 8,
-  },
-  schoolEmoji: { fontSize: 26, marginRight: 14 },
-  schoolInfo: { flex: 1 },
-  schoolName: { fontSize: 15, fontWeight: '700', color: '#eee' },
-  schoolRegion: { fontSize: 12, color: '#555', marginTop: 3 },
-  schoolArrow: { fontSize: 20, color: '#44445a' },
-
-  customCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(62,238,160,0.08)', borderRadius: 14,
-    borderWidth: 1, borderColor: '#3eeea0',
-    padding: 14, marginBottom: 8,
-  },
-  customName: { fontSize: 15, fontWeight: '700', color: '#3eeea0' },
-  customSub: { fontSize: 12, color: '#555', marginTop: 3 },
-
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyEmoji: { fontSize: 52, marginBottom: 16 },
-  emptyText: { fontSize: 16, fontWeight: '700', color: '#eee', marginBottom: 8 },
-  emptySub: { fontSize: 13, color: '#555' },
-
-  selectedCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: 'rgba(124,111,255,0.12)', borderRadius: 14,
-    borderWidth: 1, borderColor: '#7c6fff',
-    padding: 14, marginBottom: 16,
-  },
-  selectedLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  selectedEmoji: { fontSize: 28 },
-  selectedName: { fontSize: 15, fontWeight: '700', color: '#eee' },
-  selectedRegion: { fontSize: 12, color: '#888', marginTop: 2 },
-  changeBtn: {
-    backgroundColor: '#2a2a40', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 6,
-  },
-  changeBtnText: { fontSize: 12, color: '#aaa', fontWeight: '600' },
-
-  nextBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 16,
-    height: 54, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#7c6fff', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-    marginTop: 8,
-  },
-  nextBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-});
+  empty: { alignItems: 'center', gap: 8, paddingTop: 48 },
+  bottom: { paddingHorizontal: 20, gap: 4 },
+}));

@@ -1,28 +1,29 @@
 import { router, Tabs, usePathname } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { PanResponder, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Sidebar from '@/components/Sidebar';
+import Button, { type FeatherName } from '@/components/ui/Button';
+import { radius, type } from '@/constants/design';
+import { SidebarContext } from '@/lib/SidebarContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { supabase } from '@/lib/supabase';
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
+function TabIcon({ name, color }: { name: FeatherName; color: string }) {
+  return <Feather name={name} size={24} color={color} />;
 }
 
+/** AI홈 탭: AI 전용 색(ai*)으로 구별 */
 function HomeTabIcon({ focused }: { focused: boolean }) {
+  const { colors } = useTheme();
   return (
     <View style={{
-      width: 34, height: 34, borderRadius: 17,
-      backgroundColor: focused ? '#7c6fff' : '#2a2a40',
+      width: 28, height: 28, borderRadius: 10,
+      backgroundColor: focused ? colors.aiStart : colors.aiSubtle,
       alignItems: 'center', justifyContent: 'center',
-      shadowColor: '#7c6fff',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: focused ? 0.8 : 0,
-      shadowRadius: 8,
-      elevation: focused ? 6 : 0,
     }}>
-      <Text style={{ fontSize: 15, color: focused ? '#fff' : '#7c6fff' }}>✦</Text>
+      <Text style={{ fontSize: 14, fontWeight: '700', color: focused ? '#FFFFFF' : colors.aiText }}>✦</Text>
     </View>
   );
 }
@@ -82,58 +83,47 @@ export default function TabLayout() {
   })).current;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }} {...panResponder.panHandlers}>
-      {/* 고정 헤더 바 */}
-      <View style={[styles.topBar, {
-        paddingTop: insets.top,
-        backgroundColor: colors.tabBar,
-        borderBottomColor: colors.tabBorder,
-      }]}>
-        <TouchableOpacity
-          style={styles.menuBtn}
-          onPress={() => setSidebarOpen(true)}
-          activeOpacity={0.7}>
-          <Text style={[styles.menuIcon, { color: colors.text }]}>☰</Text>
-        </TouchableOpacity>
-      </View>
-
+    <SidebarContext.Provider value={{ open: () => setSidebarOpen(true) }}>
+    <View style={{ flex: 1, backgroundColor: colors.base }} {...panResponder.panHandlers}>
       <Tabs screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: colors.base },
         tabBarStyle: {
-          backgroundColor: colors.tabBar,
-          borderTopColor: colors.tabBorder,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.borderDefault,
           borderTopWidth: 1,
-          height: 65 + insets.bottom,
-          paddingBottom: 10 + insets.bottom,
+          height: 68 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 6,
         },
-        tabBarActiveTintColor: '#7c6fff',
-        tabBarInactiveTintColor: colors.tabInactive,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
+        tabBarActiveTintColor: colors.accentText,
+        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarLabelStyle: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
       }}>
         <Tabs.Screen name="timetable" options={{
           title: '시간표',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📅" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
         }} />
         <Tabs.Screen name="community" options={{
           title: '커뮤니티',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon name="message-square" color={color} />,
         }} />
         <Tabs.Screen name="index" options={{
           title: 'AI홈',
+          tabBarActiveTintColor: colors.aiText,
           tabBarIcon: ({ focused }) => <HomeTabIcon focused={focused} />,
         }} />
         <Tabs.Screen name="map" options={{
           title: '맛집',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon name="map" color={color} />,
         }} />
         <Tabs.Screen name="chat" options={{
           title: '채팅',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="✉️" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon name="message-circle" color={color} />,
         }} />
         <Tabs.Screen name="profile" options={{
           title: '프로필',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon name="user" color={color} />,
         }} />
         <Tabs.Screen name="search" options={{ href: null }} />
         <Tabs.Screen name="explore" options={{ href: null }} />
@@ -142,63 +132,44 @@ export default function TabLayout() {
       <Sidebar visible={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {schoolPopup && (
-        <View style={styles.popupOverlay}>
-          <View style={styles.popup}>
-            <Text style={styles.popupEmoji}>🏫</Text>
-            <Text style={styles.popupTitle}>학교를 등록해주세요</Text>
-            <Text style={styles.popupDesc}>학교 정보를 등록하면{'\n'}커뮤니티 맞춤 서비스를 이용할 수 있어요</Text>
-            <TouchableOpacity
-              style={styles.popupBtn}
-              onPress={() => { setSchoolPopup(false); router.push('/onboarding/school' as any); }}>
-              <Text style={styles.popupBtnText}>학교 등록하기</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSchoolPopup(false)}>
-              <Text style={styles.popupSkip}>나중에 할게요</Text>
-            </TouchableOpacity>
+        <View style={[styles.popupOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.popup, { backgroundColor: colors.surface }]}>
+            <View style={[styles.popupIcon, { backgroundColor: colors.accentSubtle }]}>
+              <Feather name="map-pin" size={28} color={colors.accentText} />
+            </View>
+            <Text style={[type.titleMedium, styles.center, { color: colors.textPrimary }]}>학교를 등록해주세요</Text>
+            <Text style={[type.bodyMedium, styles.center, { color: colors.textSecondary }]}>
+              학교 정보를 등록하면{'\n'}커뮤니티 맞춤 서비스를 이용할 수 있어요
+            </Text>
+            <View style={styles.popupBtns}>
+              <Button
+                label="학교 등록하기"
+                fullWidth
+                onPress={() => { setSchoolPopup(false); router.push('/onboarding/school' as any); }}
+              />
+              <Button label="나중에 할게요" variant="ghost" size="M" fullWidth onPress={() => setSchoolPopup(false)} />
+            </View>
           </View>
         </View>
       )}
     </View>
+    </SidebarContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  menuBtn: {
-    width: 40, height: 40,
-    alignItems: 'center', justifyContent: 'center',
-    borderRadius: 10,
-  },
-  menuIcon: { fontSize: 20, fontWeight: '600' },
-
   popupOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center', alignItems: 'center',
-    zIndex: 999,
+    justifyContent: 'center', alignItems: 'center', zIndex: 999,
   },
   popup: {
-    backgroundColor: '#13131a', borderRadius: 24,
-    borderWidth: 1, borderColor: '#2a2a40',
-    padding: 28, marginHorizontal: 32,
-    alignItems: 'center', gap: 8,
+    borderRadius: radius.xl, padding: 24, marginHorizontal: 24,
+    alignItems: 'center', gap: 8, alignSelf: 'stretch',
   },
-  popupEmoji: { fontSize: 48, marginBottom: 4 },
-  popupTitle: { fontSize: 20, fontWeight: '900', color: '#eee', textAlign: 'center' },
-  popupDesc: { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 22, marginBottom: 8 },
-  popupBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 14,
-    paddingVertical: 14, paddingHorizontal: 32,
-    width: '100%', alignItems: 'center',
-    marginTop: 4,
+  popupIcon: {
+    width: 64, height: 64, borderRadius: 32,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
   },
-  popupBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  popupSkip: { color: '#555', fontSize: 13, marginTop: 8 },
+  center: { textAlign: 'center' },
+  popupBtns: { alignSelf: 'stretch', gap: 4, marginTop: 16 },
 });

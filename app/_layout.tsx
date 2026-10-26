@@ -3,12 +3,22 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import 'react-native-url-polyfill/auto';
 
-import { AppThemeProvider } from '@/lib/ThemeContext';
+import { AppThemeProvider, useTheme } from '@/lib/ThemeContext';
 
 export default function RootLayout() {
   return (
     <AppThemeProvider>
-      <Stack initialRouteName="index">
+      <ThemedStack />
+    </AppThemeProvider>
+  );
+}
+
+/** 테마에 맞춰 화면 배경과 상태 표시줄 글자색을 바꾼다 (기본: 라이트) */
+function ThemedStack() {
+  const { mode, colors } = useTheme();
+  return (
+    <>
+      <Stack initialRouteName="index" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.base } }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding/index" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="onboarding/school" options={{ headerShown: false, gestureEnabled: false }} />
@@ -18,11 +28,11 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal', headerShown: true }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[roomId]" options={{ headerShown: false }} />
       </Stack>
-      <StatusBar style="auto" />
-    </AppThemeProvider>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+    </>
   );
 }

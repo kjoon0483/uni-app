@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -12,6 +14,8 @@ import {
 import { supabase } from '@/lib/supabase';
 
 export default function ResetPasswordScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,7 +59,7 @@ export default function ResetPasswordScreen() {
       <TextInput
         style={styles.input}
         placeholder="새 비밀번호 (6자 이상)"
-        placeholderTextColor="#555"
+        placeholderTextColor={colors.textTertiary}
         value={password}
         onChangeText={v => { setPassword(v); setErrorMsg(''); setSuccessMsg(''); }}
         secureTextEntry
@@ -63,7 +67,7 @@ export default function ResetPasswordScreen() {
       <TextInput
         style={[styles.input, { marginTop: 12 }, mismatch && styles.inputError]}
         placeholder="비밀번호 확인"
-        placeholderTextColor="#555"
+        placeholderTextColor={colors.textTertiary}
         value={confirm}
         onChangeText={v => { setConfirm(v); setErrorMsg(''); setSuccessMsg(''); }}
         secureTextEntry
@@ -79,7 +83,7 @@ export default function ResetPasswordScreen() {
         onPress={handleReset}
         disabled={loading || !!successMsg}>
         {loading
-          ? <ActivityIndicator color="#fff" />
+          ? <ActivityIndicator color={colors.onAccent} />
           : <Text style={styles.btnText}>변경하기 →</Text>
         }
       </TouchableOpacity>
@@ -87,26 +91,26 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   container: {
-    flex: 1, backgroundColor: '#07070d',
+    flex: 1, backgroundColor: c.base,
     paddingHorizontal: 24, paddingTop: 80,
   },
-  title: { fontSize: 28, fontWeight: '900', color: '#fff', marginBottom: 8 },
-  sub: { fontSize: 14, color: '#888', marginBottom: 36 },
+  title: { fontSize: 28, fontWeight: '700', color: c.textPrimary, marginBottom: 8 },
+  sub: { fontSize: 14, color: c.textSecondary, marginBottom: 36 },
   input: {
-    backgroundColor: '#13131a', borderRadius: 14,
+    backgroundColor: c.surface, borderRadius: 14,
     paddingHorizontal: 16, paddingVertical: 14,
-    color: '#fff', fontSize: 15,
-    borderWidth: 1, borderColor: '#2a2a40',
+    color: c.textPrimary, fontSize: 15,
+    borderWidth: 1, borderColor: c.borderDefault,
   },
-  inputError: { borderColor: '#ff6b6b' },
+  inputError: { borderColor: c.danger },
   btn: {
-    backgroundColor: '#7c6fff', borderRadius: 28,
+    backgroundColor: c.accentFill, borderRadius: 28,
     height: 56, alignItems: 'center', justifyContent: 'center', marginTop: 28,
   },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  errorText: { fontSize: 13, color: '#ff6b6b', marginTop: 8 },
-  okText: { fontSize: 13, color: '#3eeea0', marginTop: 8 },
-  successText: { fontSize: 15, color: '#3eeea0', fontWeight: '700', marginTop: 8, lineHeight: 24 },
-});
+  btnText: { color: c.onAccent, fontSize: 16, fontWeight: '700' },
+  errorText: { fontSize: 13, color: c.danger, marginTop: 8 },
+  okText: { fontSize: 13, color: c.success, marginTop: 8 },
+  successText: { fontSize: 15, color: c.success, fontWeight: '700', marginTop: 8, lineHeight: 24 },
+}));

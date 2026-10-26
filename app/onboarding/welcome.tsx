@@ -1,117 +1,66 @@
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Button from '@/components/ui/Button';
+import { radius, type } from '@/constants/design';
+import { makeStyles } from '@/lib/makeStyles';
+import { useTheme } from '@/lib/ThemeContext';
+
+const NEXT_STEPS = ['학교 선택', '기본 정보 입력', '시간표 등록 (선택)'];
 
 export default function WelcomeScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const riseAnim = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(riseAnim, { toValue: 0, tension: 60, friction: 9, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [fadeAnim, riseAnim]);
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-        <View style={styles.glowCircle} />
-
-        <Text style={styles.emoji}>🎉</Text>
-        <Text style={styles.title}>회원가입 완료!</Text>
-        <Text style={styles.subtitle}>환영합니다</Text>
-        <Text style={styles.desc}>
-          이제 Uni와 함께{'\n'}대학 생활을 시작해봐요
+    <View style={[styles.container, { backgroundColor: colors.base, paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
+      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: riseAnim }] }]}>
+        <View style={[styles.check, { backgroundColor: colors.accentSubtle }]}>
+          <Feather name="check" size={36} color={colors.accentText} />
+        </View>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>가입을 환영해요!</Text>
+        <Text style={[type.bodyLarge, { color: colors.textSecondary }]}>
+          학교와 기본 정보만 알려주면{'\n'}Uni가 우리 학교에 맞춰 준비할게요.
         </Text>
 
-        <View style={styles.divider} />
-
-        <TouchableOpacity style={styles.btn} onPress={() => router.push('/onboarding/school')}>
-          <Text style={styles.btnText}>시작하기 →</Text>
-        </TouchableOpacity>
+        <View style={[styles.steps, { backgroundColor: colors.surface }]}>
+          {NEXT_STEPS.map((label, i) => (
+            <View key={label} style={styles.stepRow}>
+              <View style={[styles.stepNum, { backgroundColor: colors.raised }]}>
+                <Text style={[type.labelSmall, { color: colors.textSecondary }]}>{i + 1}</Text>
+              </View>
+              <Text style={[type.bodyMedium, { color: colors.textPrimary }]}>{label}</Text>
+            </View>
+          ))}
+        </View>
       </Animated.View>
+
+      <View style={styles.bottom}>
+        <Button label="시작하기" fullWidth onPress={() => router.push('/onboarding/school')} />
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#07070d',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  content: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  glowCircle: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: '#7c6fff',
-    opacity: 0.07,
-    top: -80,
-  },
-  emoji: {
-    fontSize: 72,
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#fff',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#a78bfa',
-    marginBottom: 20,
-  },
-  desc: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: 40,
-  },
-  divider: {
-    width: 48,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#7c6fff',
-    marginBottom: 40,
-    opacity: 0.5,
-  },
-  btn: {
-    backgroundColor: '#7c6fff',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    shadowColor: '#7c6fff',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  btnText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-});
+const useStyles = makeStyles(() => ({
+  container: { flex: 1 },
+  content: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, gap: 12 },
+  check: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
+  steps: { borderRadius: radius.lg, padding: 16, gap: 12, marginTop: 12 },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepNum: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  bottom: { paddingHorizontal: 20 },
+}));
