@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -24,6 +26,8 @@ type Profile = {
 };
 
 export default function AdminUsers() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,13 +163,13 @@ export default function AdminUsers() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="닉네임 또는 이메일 검색..."
-          placeholderTextColor="#44445a"
+          placeholderTextColor={colors.textTertiary}
         />
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color="#7c6fff" />
+          <ActivityIndicator color={colors.accentText} />
         </View>
       ) : (
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -217,7 +221,7 @@ export default function AdminUsers() {
                   disabled={loadingId === user.id}
                 >
                   {loadingId === user.id
-                    ? <ActivityIndicator size="small" color="#888" />
+                    ? <ActivityIndicator size="small" color={colors.textSecondary} />
                     : <Text style={[styles.actionBtnText, user.is_banned ? styles.unbanText : styles.banText]}>
                         {user.is_banned ? '정지 해제' : '계정 정지'}
                       </Text>
@@ -251,77 +255,77 @@ export default function AdminUsers() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
+const useStyles = makeStyles((c) => ({
+  container: { flex: 1, backgroundColor: c.base },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: 55, paddingBottom: 12,
   },
   backBtn: { paddingRight: 8 },
-  backText: { color: '#7c6fff', fontSize: 14 },
-  title: { flex: 1, fontSize: 20, fontWeight: '900', color: '#eee' },
-  count: { fontSize: 14, color: '#666' },
+  backText: { color: c.accentText, fontSize: 14 },
+  title: { flex: 1, fontSize: 20, fontWeight: '700', color: c.textPrimary },
+  count: { fontSize: 14, color: c.textTertiary },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
-  emptyText: { color: '#555', fontSize: 14 },
+  emptyText: { color: c.textTertiary, fontSize: 14 },
 
   errorBanner: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#ff444422', borderWidth: 1, borderColor: '#ff4444',
+    backgroundColor: c.dangerSubtle, borderWidth: 1, borderColor: c.danger,
     marginHorizontal: 16, marginBottom: 8, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10,
   },
-  errorBannerText: { flex: 1, color: '#ff6666', fontSize: 12 },
-  errorClose: { color: '#ff6666', fontSize: 14, fontWeight: '700', paddingLeft: 8 },
+  errorBannerText: { flex: 1, color: c.danger, fontSize: 12 },
+  errorClose: { color: c.danger, fontSize: 14, fontWeight: '700', paddingLeft: 8 },
 
   searchBox: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#13131a', borderRadius: 14,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: c.borderDefault,
     marginHorizontal: 16, marginBottom: 12,
     paddingHorizontal: 14, paddingVertical: 10,
   },
   searchIcon: { fontSize: 14, marginRight: 8 },
-  searchInput: { flex: 1, color: '#eee', fontSize: 13 },
+  searchInput: { flex: 1, color: c.textPrimary, fontSize: 13 },
 
   content: { flex: 1, paddingHorizontal: 16 },
   userCard: {
-    backgroundColor: '#13131a', borderRadius: 16,
-    borderWidth: 1, borderColor: '#1e1e30',
+    backgroundColor: c.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: c.borderDefault,
     padding: 14, marginBottom: 10,
   },
-  userCardBanned: { borderColor: '#ef444430', backgroundColor: '#1a0a0a' },
+  userCardBanned: { borderColor: c.danger, backgroundColor: c.dangerSubtle },
   userTop: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   avatar: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#7c6fff33', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: c.accentSubtle, justifyContent: 'center', alignItems: 'center',
   },
-  avatarBanned: { backgroundColor: '#ef444422' },
-  avatarText: { fontSize: 18, fontWeight: '700', color: '#7c6fff' },
-  avatarTextBanned: { color: '#ef4444' },
+  avatarBanned: { backgroundColor: c.dangerSubtle },
+  avatarText: { fontSize: 18, fontWeight: '700', color: c.accentText },
+  avatarTextBanned: { color: c.danger },
   userInfo: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' },
-  nickname: { fontSize: 15, fontWeight: '700', color: '#eee' },
-  nicknameBanned: { color: '#888' },
+  nickname: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
+  nicknameBanned: { color: c.textSecondary },
   adminBadge: {
-    backgroundColor: '#7c6fff22', borderRadius: 6,
+    backgroundColor: c.accentSubtle, borderRadius: 6,
     paddingHorizontal: 6, paddingVertical: 2,
-    borderWidth: 1, borderColor: '#7c6fff',
+    borderWidth: 1, borderColor: c.accentFill,
   },
-  adminBadgeText: { fontSize: 9, color: '#7c6fff', fontWeight: '900' },
+  adminBadgeText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
   bannedBadge: {
-    backgroundColor: '#ef444422', borderRadius: 6,
+    backgroundColor: c.dangerSubtle, borderRadius: 6,
     paddingHorizontal: 6, paddingVertical: 2,
-    borderWidth: 1, borderColor: '#ef4444',
+    borderWidth: 1, borderColor: c.danger,
   },
-  bannedBadgeText: { fontSize: 9, color: '#ef4444', fontWeight: '900' },
+  bannedBadgeText: { fontSize: 12, color: c.danger, fontWeight: '700' },
   meBadge: {
-    backgroundColor: '#10b98122', borderRadius: 6,
+    backgroundColor: c.raised, borderRadius: 6,
     paddingHorizontal: 6, paddingVertical: 2,
-    borderWidth: 1, borderColor: '#10b981',
+    borderWidth: 1, borderColor: c.success,
   },
-  meBadgeText: { fontSize: 9, color: '#10b981', fontWeight: '900' },
-  email: { fontSize: 12, color: '#888', marginBottom: 2 },
-  school: { fontSize: 11, color: '#555' },
+  meBadgeText: { fontSize: 12, color: c.success, fontWeight: '700' },
+  email: { fontSize: 12, color: c.textSecondary, marginBottom: 2 },
+  school: { fontSize: 12, color: c.textTertiary },
 
   btnRow: { flexDirection: 'row', gap: 8 },
   actionBtn: {
@@ -329,14 +333,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, minHeight: 34, justifyContent: 'center',
   },
   actionBtnText: { fontSize: 12, fontWeight: '700' },
-  banBtn: { backgroundColor: '#1a0a0a', borderColor: '#ef4444' },
-  banText: { color: '#ef4444' },
-  unbanBtn: { backgroundColor: '#0a1a0a', borderColor: '#10b981' },
-  unbanText: { color: '#10b981' },
-  adminBtn: { backgroundColor: '#1a1a2e', borderColor: '#2a2a40' },
-  adminText: { color: '#888' },
-  adminActiveBtn: { backgroundColor: '#7c6fff22', borderColor: '#7c6fff' },
-  adminActiveText: { color: '#7c6fff' },
-  deleteBtn: { backgroundColor: '#ff444411', borderColor: '#ff4444', flex: 0, paddingHorizontal: 16 },
-  deleteText: { color: '#ff6666' },
-});
+  banBtn: { backgroundColor: c.dangerSubtle, borderColor: c.danger },
+  banText: { color: c.danger },
+  unbanBtn: { backgroundColor: c.surface, borderColor: c.success },
+  unbanText: { color: c.success },
+  adminBtn: { backgroundColor: c.surface, borderColor: c.borderDefault },
+  adminText: { color: c.textSecondary },
+  adminActiveBtn: { backgroundColor: c.accentSubtle, borderColor: c.accentFill },
+  adminActiveText: { color: c.accentText },
+  deleteBtn: { backgroundColor: c.dangerSubtle, borderColor: c.danger, flex: 0, paddingHorizontal: 16 },
+  deleteText: { color: c.danger },
+}));

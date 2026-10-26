@@ -1,9 +1,11 @@
+import { makeStyles } from '@/lib/makeStyles';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -15,9 +17,16 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
 import { startOrOpenChat } from '@/lib/chat';
+import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import Avatar from '@/components/ui/Avatar';
+import Button from '@/components/ui/Button';
+import Chip from '@/components/ui/Chip';
+import IconButton from '@/components/ui/IconButton';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import { radius, type } from '@/constants/design';
 
 const TABS = ['전체', '자유', '질문', '정보', '익명'];
-const TAB_EMOJIS: Record<string, string> = { 자유: '😊', 질문: '❓', 정보: 'ℹ️', 익명: '🕵️' };
 
 type Post = {
   id: string;
@@ -54,6 +63,7 @@ function timeAgo(iso: string) {
 }
 
 export default function CommunityScreen() {
+  const styles = useStyles();
   const { colors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -301,79 +311,72 @@ export default function CommunityScreen() {
   const filtered = selectedTab === '전체' ? posts : posts.filter(p => p.tab === selectedTab);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.title, { color: colors.accent }]}>커뮤니티 💬</Text>
-          <Text style={[styles.subtitle, { color: colors.subText }]}>지금 학교에서 뜨고 있는 이야기</Text>
-        </View>
-        <TouchableOpacity style={styles.writeBtn} onPress={() => setWriteModal(true)}>
-          <Text style={styles.writeBtnText}>✏️ 글쓰기</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.base }]}>
+      <ScreenHeader
+        title="커뮤니티"
+        actions={<IconButton icon="search" accessibilityLabel="커뮤니티 검색" onPress={() => router.push('/(tabs)/search' as any)} />}
+      />
 
-      {/* 탭 */}
+      {/* 게시판 분류 */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        style={styles.tabScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+        style={styles.tabScroll} contentContainerStyle={styles.tabContent}>
         {TABS.map(tab => (
-          <TouchableOpacity key={tab}
-            style={[styles.tabChip, { backgroundColor: colors.card, borderColor: colors.border }, selectedTab === tab && styles.tabChipActive]}
-            onPress={() => setSelectedTab(tab)}>
-            <Text style={[styles.tabText, { color: colors.subText }, selectedTab === tab && styles.tabTextActive]}>{tab}</Text>
-          </TouchableOpacity>
+          <Chip key={tab} label={tab} selected={selectedTab === tab} onPress={() => setSelectedTab(tab)} />
         ))}
       </ScrollView>
 
       {/* 게시글 목록 */}
-      <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {loadingPosts ? (
-          <View style={styles.empty}><ActivityIndicator color="#7c6fff" size="large" /></View>
+          <View style={styles.empty}><ActivityIndicator color={colors.accentText} size="large" /></View>
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>💬</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>아직 게시글이 없어요</Text>
-            <Text style={[styles.emptySub, { color: colors.subText }]}>첫 번째 글을 작성해보세요!</Text>
-            <TouchableOpacity style={styles.emptyBtn} onPress={() => setWriteModal(true)}>
-              <Text style={styles.emptyBtnText}>✏️ 글쓰기</Text>
-            </TouchableOpacity>
+            <View style={[styles.emptyIcon, { backgroundColor: colors.accentSubtle }]}>
+              <Feather name="message-square" size={28} color={colors.accentText} />
+            </View>
+            <Text style={[type.titleSmall, { color: colors.textPrimary }]}>아직 게시글이 없어요</Text>
+            <Text style={[type.bodyMedium, { color: colors.textSecondary }]}>첫 번째 글을 작성해보세요</Text>
           </View>
         ) : (
-          filtered.map(post => (
-            <TouchableOpacity key={post.id}
-              style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => openDetail(post)} activeOpacity={0.8}>
-              <View style={styles.postHeader}>
-                <TouchableOpacity
-                  style={[styles.postEmojiBox, { backgroundColor: colors.bg, borderColor: colors.border }]}
-                  onPress={(e) => { e.stopPropagation?.(); openProfile(post); }}>
-                  <Text style={styles.postEmoji}>{TAB_EMOJIS[post.tab] ?? '📝'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.postMeta} onPress={(e) => { e.stopPropagation?.(); openProfile(post); }}>
-                  <Text style={[styles.postAuthor, { color: colors.text }]}>{post.author_nickname}</Text>
-                  <Text style={[styles.postTime, { color: colors.subText }]}>{timeAgo(post.created_at)}</Text>
-                </TouchableOpacity>
-                <View style={[styles.postTabBadge, { backgroundColor: colors.accent + '18' }]}>
-                  <Text style={[styles.postTabText, { color: colors.accent }]}>{post.tab}</Text>
+          filtered.map(post => {
+            const liked = likedIds.has(post.id);
+            return (
+              <Pressable key={post.id}
+                style={({ pressed }) => [styles.postCard, { backgroundColor: colors.surface }, pressed && styles.pressed]}
+                onPress={() => openDetail(post)}>
+                <View style={styles.postHeader}>
+                  <Pressable style={styles.postMeta} onPress={(e) => { e.stopPropagation?.(); openProfile(post); }}>
+                    <Avatar name={isAnonPost(post) ? '익' : post.author_nickname} size={28} />
+                    <Text style={[type.labelMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {isAnonPost(post) ? '익명' : post.author_nickname}
+                    </Text>
+                    <Text style={[type.caption, { color: colors.textTertiary }]}>· {timeAgo(post.created_at)}</Text>
+                  </Pressable>
+                  <View style={[styles.postTabBadge, { backgroundColor: colors.raised }]}>
+                    <Text style={[type.labelSmall, { color: colors.textSecondary }]}>{post.tab}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={[styles.postTitle, { color: colors.text }]}>{post.title}</Text>
-              <Text style={[styles.postBody, { color: colors.subText }]} numberOfLines={2}>{post.body}</Text>
-              <View style={[styles.postFooter, { borderTopColor: colors.border }]}>
-                <TouchableOpacity style={styles.postAction} onPress={() => toggleLike(post)}>
-                  <Text style={styles.postActionIcon}>{likedIds.has(post.id) ? '❤️' : '🤍'}</Text>
-                  <Text style={[styles.postActionText, { color: colors.subText }, likedIds.has(post.id) && styles.likedText]}>{post.likes}</Text>
-                </TouchableOpacity>
-                <View style={styles.postAction}>
-                  <Text style={styles.postActionIcon}>💬</Text>
-                  <Text style={[styles.postActionText, { color: colors.subText }]}>{post.comment_count}</Text>
+                <Text style={[type.titleSmall, { color: colors.textPrimary }]}>{post.title}</Text>
+                <Text style={[type.bodyMedium, { color: colors.textSecondary }]} numberOfLines={2}>{post.body}</Text>
+                <View style={styles.postFooter}>
+                  <Pressable style={styles.postAction} hitSlop={8} onPress={() => toggleLike(post)}
+                    accessibilityRole="button" accessibilityLabel={liked ? '좋아요 취소' : '좋아요'}>
+                    <Feather name="heart" size={18} color={liked ? colors.danger : colors.textTertiary} />
+                    <Text style={[type.labelSmall, { color: liked ? colors.danger : colors.textTertiary }]}>{post.likes}</Text>
+                  </Pressable>
+                  <View style={styles.postAction}>
+                    <Feather name="message-square" size={18} color={colors.textTertiary} />
+                    <Text style={[type.labelSmall, { color: colors.textTertiary }]}>{post.comment_count}</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))
+              </Pressable>
+            );
+          })
         )}
-        <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* 글쓰기 */}
+      <Button label="글쓰기" icon="edit-3" onPress={() => setWriteModal(true)} style={styles.fab} />
 
       {/* 상세 뷰 */}
       <Modal visible={detailModal} animationType="slide" onRequestClose={closeDetail}>
@@ -381,15 +384,10 @@ export default function CommunityScreen() {
           style={[styles.detailContainer, { backgroundColor: colors.bg }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.detailHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={closeDetail} style={styles.detailBack}>
-              <Text style={[styles.detailBackText, { color: colors.text }]}>← 뒤로</Text>
-            </TouchableOpacity>
+            <IconButton icon="chevron-left" accessibilityLabel="뒤로" onPress={closeDetail} />
             <Text style={[styles.detailHeaderTitle, { color: colors.text }]}>게시글</Text>
-            <TouchableOpacity
-              onPress={() => detailPost && Share.share({ message: `[${detailPost.tab}] ${detailPost.title}\n\n${detailPost.body}` })}
-              style={styles.detailShare}>
-              <Text style={{ color: colors.subText, fontSize: 13 }}>공유 ↗</Text>
-            </TouchableOpacity>
+            <IconButton icon="share-2" accessibilityLabel="공유"
+              onPress={() => detailPost && Share.share({ message: `[${detailPost.tab}] ${detailPost.title}\n\n${detailPost.body}` })} />
           </View>
 
           <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -397,19 +395,17 @@ export default function CommunityScreen() {
               <>
                 <View style={[styles.detailContent, { borderBottomColor: colors.border }]}>
                   <View style={styles.detailMeta}>
-                    <TouchableOpacity
-                      style={[styles.postEmojiBox, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => openProfile(detailPost)}>
-                      <Text style={styles.postEmoji}>{TAB_EMOJIS[detailPost.tab] ?? '📝'}</Text>
-                    </TouchableOpacity>
+                    <Pressable onPress={() => openProfile(detailPost)}>
+                      <Avatar name={isAnonPost(detailPost) ? '익' : detailPost.author_nickname} size={40} />
+                    </Pressable>
                     <TouchableOpacity style={{ flex: 1 }} onPress={() => openProfile(detailPost)}>
                       <Text style={[styles.postAuthor, { color: colors.text }]}>
                         {isAnonPost(detailPost) ? '익명1' : detailPost.author_nickname}
                       </Text>
                       <Text style={[styles.postTime, { color: colors.subText }]}>{timeAgo(detailPost.created_at)}</Text>
                     </TouchableOpacity>
-                    <View style={[styles.postTabBadge, { backgroundColor: colors.accent + '18' }]}>
-                      <Text style={[styles.postTabText, { color: colors.accent }]}>{detailPost.tab}</Text>
+                    <View style={[styles.postTabBadge, { backgroundColor: colors.raised }]}>
+                      <Text style={[type.labelSmall, { color: colors.textSecondary }]}>{detailPost.tab}</Text>
                     </View>
                   </View>
                   <Text style={[styles.detailTitle, { color: colors.text }]}>{detailPost.title}</Text>
@@ -418,11 +414,11 @@ export default function CommunityScreen() {
                     <TouchableOpacity
                       style={[styles.likeBtn, likedIds.has(detailPost.id) && styles.likeBtnActive]}
                       onPress={() => toggleLike(detailPost)}>
-                      <Text style={styles.likeBtnIcon}>{likedIds.has(detailPost.id) ? '❤️' : '🤍'}</Text>
-                      <Text style={[styles.likeBtnText, likedIds.has(detailPost.id) && { color: '#ff6b6b' }]}>{detailPost.likes}</Text>
+                      <Feather name="heart" size={18} color={likedIds.has(detailPost.id) ? colors.danger : colors.textTertiary} />
+                      <Text style={[styles.likeBtnText, likedIds.has(detailPost.id) && { color: colors.danger }]}>{detailPost.likes}</Text>
                     </TouchableOpacity>
                     <View style={styles.commentCount}>
-                      <Text style={{ fontSize: 16 }}>💬</Text>
+                      <Feather name="message-square" size={18} color={colors.textTertiary} />
                       <Text style={[styles.commentCountText, { color: colors.subText }]}>{detailPost.comment_count}</Text>
                     </View>
                   </View>
@@ -432,7 +428,7 @@ export default function CommunityScreen() {
                 <View style={styles.commentsSection}>
                   <Text style={[styles.commentsSectionTitle, { color: colors.text }]}>댓글 {topComments.length}개</Text>
                   {loadingComments ? (
-                    <ActivityIndicator color="#7c6fff" style={{ marginTop: 20 }} />
+                    <ActivityIndicator color={colors.accentText} style={{ marginTop: 20 }} />
                   ) : topComments.length === 0 ? (
                     <Text style={[styles.noComment, { color: colors.subText }]}>첫 댓글을 남겨보세요!</Text>
                   ) : (
@@ -449,8 +445,8 @@ export default function CommunityScreen() {
                             <Text style={[styles.commentText, { color: colors.text }]}>{c.body}</Text>
                             <View style={styles.commentActions}>
                               <TouchableOpacity style={styles.commentAction} onPress={() => toggleCommentLike(c)}>
-                                <Text style={styles.commentActionIcon}>{commentLikedIds.has(c.id) ? '❤️' : '🤍'}</Text>
-                                <Text style={[styles.commentActionText, { color: commentLikedIds.has(c.id) ? '#ff6b6b' : colors.subText }]}>{c.likes}</Text>
+                                <Feather name="heart" size={16} color={commentLikedIds.has(c.id) ? colors.danger : colors.textTertiary} />
+                                <Text style={[styles.commentActionText, { color: commentLikedIds.has(c.id) ? colors.danger : colors.subText }]}>{c.likes}</Text>
                               </TouchableOpacity>
                               <TouchableOpacity style={styles.commentAction} onPress={() => {
                                 setReplyingTo(replyingTo?.id === c.id ? null : c);
@@ -478,8 +474,8 @@ export default function CommunityScreen() {
                                 <Text style={[styles.commentText, { color: colors.text, fontSize: 13 }]}>{r.body}</Text>
                                 <View style={styles.commentActions}>
                                   <TouchableOpacity style={styles.commentAction} onPress={() => toggleCommentLike(r)}>
-                                    <Text style={styles.commentActionIcon}>{commentLikedIds.has(r.id) ? '❤️' : '🤍'}</Text>
-                                    <Text style={[styles.commentActionText, { color: commentLikedIds.has(r.id) ? '#ff6b6b' : colors.subText }]}>{r.likes}</Text>
+                                    <Feather name="heart" size={16} color={commentLikedIds.has(r.id) ? colors.danger : colors.textTertiary} />
+                                    <Text style={[styles.commentActionText, { color: commentLikedIds.has(r.id) ? colors.danger : colors.subText }]}>{r.likes}</Text>
                                   </TouchableOpacity>
                                 </View>
                               </View>
@@ -521,7 +517,7 @@ export default function CommunityScreen() {
               onPress={submitComment}
               disabled={!commentText.trim() || sendingComment}>
               {sendingComment
-                ? <ActivityIndicator color="#fff" size="small" />
+                ? <ActivityIndicator color={colors.onAccent} size="small" />
                 : <Text style={styles.commentSendBtnText}>↑</Text>
               }
             </TouchableOpacity>
@@ -541,20 +537,20 @@ export default function CommunityScreen() {
             </View>
 
             {profileLoading ? (
-              <ActivityIndicator color="#7c6fff" style={{ marginVertical: 32 }} />
+              <ActivityIndicator color={colors.accentText} style={{ marginVertical: 32 }} />
             ) : profileUser ? (
               <View style={{ alignItems: 'center', paddingVertical: 16, gap: 12 }}>
                 {/* 아바타 */}
                 <View style={styles.profileAvatar}>
                   <Text style={styles.profileAvatarText}>
-                    {profileUser.isAnon ? '🕵️' : profileUser.nickname[0]?.toUpperCase()}
+                    {profileUser.isAnon ? '익' : profileUser.nickname[0]?.toUpperCase()}
                   </Text>
                 </View>
                 <Text style={[styles.profileNickname, { color: colors.text }]}>
                   {profileUser.isAnon ? '익명 사용자' : profileUser.nickname}
                 </Text>
                 {!profileUser.isAnon && profileUser.school ? (
-                  <Text style={[styles.profileSchool, { color: colors.subText }]}>🏫 {profileUser.school}</Text>
+                  <Text style={[styles.profileSchool, { color: colors.subText }]}>{profileUser.school}</Text>
                 ) : null}
 
                 {/* 버튼들 */}
@@ -562,7 +558,7 @@ export default function CommunityScreen() {
                   {/* 항상: 채팅하기 */}
                   <TouchableOpacity style={styles.profileChatBtn} onPress={chatWithProfileUser}>
                     <Text style={styles.profileChatBtnText}>
-                      {profileUser.isAnon ? '익명으로 채팅' : '✉️ 채팅하기'}
+                      {profileUser.isAnon ? '익명으로 채팅' : '채팅하기'}
                     </Text>
                   </TouchableOpacity>
 
@@ -575,18 +571,18 @@ export default function CommunityScreen() {
                         </TouchableOpacity>
                       )}
                       {friendStatus === 'pending_sent' && (
-                        <TouchableOpacity style={[styles.profileFriendBtn, { borderColor: '#666' }]} onPress={cancelOrRemoveFriend}>
-                          <Text style={[styles.profileFriendBtnText, { color: '#888' }]}>요청 취소</Text>
+                        <TouchableOpacity style={[styles.profileFriendBtn, { borderColor: colors.borderStrong }]} onPress={cancelOrRemoveFriend}>
+                          <Text style={[styles.profileFriendBtnText, { color: colors.textSecondary }]}>요청 취소</Text>
                         </TouchableOpacity>
                       )}
                       {friendStatus === 'pending_received' && (
-                        <TouchableOpacity style={[styles.profileFriendBtn, { backgroundColor: '#7c6fff', borderColor: '#7c6fff' }]} onPress={acceptFriendRequest}>
-                          <Text style={[styles.profileFriendBtnText, { color: '#fff' }]}>친구 수락</Text>
+                        <TouchableOpacity style={[styles.profileFriendBtn, { backgroundColor: colors.accentFill, borderColor: colors.accentFill }]} onPress={acceptFriendRequest}>
+                          <Text style={[styles.profileFriendBtnText, { color: colors.textPrimary }]}>친구 수락</Text>
                         </TouchableOpacity>
                       )}
                       {friendStatus === 'accepted' && (
-                        <TouchableOpacity style={[styles.profileFriendBtn, { borderColor: '#3eeea0' }]} onPress={cancelOrRemoveFriend}>
-                          <Text style={[styles.profileFriendBtnText, { color: '#3eeea0' }]}>✓ 친구</Text>
+                        <TouchableOpacity style={[styles.profileFriendBtn, { borderColor: colors.success }]} onPress={cancelOrRemoveFriend}>
+                          <Text style={[styles.profileFriendBtnText, { color: colors.success }]}>✓ 친구</Text>
                         </TouchableOpacity>
                       )}
                     </>
@@ -631,7 +627,7 @@ export default function CommunityScreen() {
             <TouchableOpacity
               style={[styles.submitBtn, (!writeTitle.trim() || !writeBody.trim() || submitting) && styles.submitBtnDisabled]}
               onPress={submitPost} disabled={!writeTitle.trim() || !writeBody.trim() || submitting}>
-              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>등록하기</Text>}
+              {submitting ? <ActivityIndicator color={colors.onAccent} /> : <Text style={styles.submitBtnText}>등록하기</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -640,97 +636,104 @@ export default function CommunityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   container: { flex: 1 },
+  tabContent: { paddingHorizontal: 20, gap: 8 },
+  listContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 96, gap: 12 },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  pressed: { opacity: 0.85 },
+  fab: {
+    position: 'absolute', right: 20, bottom: 16, borderRadius: 26,
+    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 6,
+  },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
     paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12,
   },
-  title: { fontSize: 24, fontWeight: '900' },
+  title: { fontSize: 24, fontWeight: '700' },
   subtitle: { fontSize: 12, marginTop: 3 },
-  writeBtn: { backgroundColor: '#7c6fff', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
-  writeBtnText: { fontSize: 13, color: '#fff', fontWeight: '700' },
+  writeBtn: { backgroundColor: c.accentFill, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
+  writeBtnText: { fontSize: 13, color: c.onAccent, fontWeight: '700' },
 
   tabScroll: { flexGrow: 0, marginBottom: 12 },
   tabChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-  tabChipActive: { backgroundColor: '#7c6fff', borderColor: '#7c6fff' },
-  tabText: { fontSize: 12, fontWeight: '600' },
-  tabTextActive: { color: '#fff' },
+  tabChipActive: { backgroundColor: c.accentFill, borderColor: c.accentFill },
+  tabText: { fontSize: 12, fontWeight: '500' },
+  tabTextActive: { color: c.onAccent },
 
-  list: { flex: 1, paddingHorizontal: 16 },
-  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+  list: { flex: 1 },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 4 },
   emptyEmoji: { fontSize: 48, marginBottom: 14 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
   emptySub: { fontSize: 13, marginBottom: 24 },
-  emptyBtn: { backgroundColor: '#7c6fff', borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 },
-  emptyBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  emptyBtn: { backgroundColor: c.accentFill, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 },
+  emptyBtnText: { fontSize: 14, fontWeight: '700', color: c.onAccent },
 
-  postCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10 },
-  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  postCard: { borderRadius: radius.lg, padding: 16, gap: 8 },
+  postHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   postEmojiBox: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   postEmoji: { fontSize: 18 },
-  postMeta: { flex: 1 },
+  postMeta: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   postAuthor: { fontSize: 13, fontWeight: '700' },
-  postTime: { fontSize: 11, marginTop: 1 },
-  postTabBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  postTabText: { fontSize: 10, fontWeight: '700' },
+  postTime: { fontSize: 12, marginTop: 1 },
+  postTabBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  postTabText: { fontSize: 12, fontWeight: '700' },
   postTitle: { fontSize: 14, fontWeight: '700', marginBottom: 6 },
   postBody: { fontSize: 12, lineHeight: 18, marginBottom: 12 },
-  postFooter: { flexDirection: 'row', gap: 16, borderTopWidth: 1, paddingTop: 10 },
-  postAction: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  postFooter: { flexDirection: 'row', gap: 16, paddingTop: 4 },
+  postAction: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 24 },
   postActionIcon: { fontSize: 14 },
   postActionText: { fontSize: 12 },
-  likedText: { color: '#ff6b6b' },
+  likedText: { color: c.danger },
 
   // 상세 뷰
   detailContainer: { flex: 1 },
   detailHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 16,
-    paddingBottom: 14, borderBottomWidth: 1,
+    paddingHorizontal: 8, paddingTop: Platform.OS === 'ios' ? 52 : 12,
+    paddingBottom: 8, borderBottomWidth: 1,
   },
   detailBack: { padding: 4 },
-  detailBackText: { fontSize: 15, fontWeight: '600' },
-  detailHeaderTitle: { fontSize: 16, fontWeight: '800' },
+  detailBackText: { fontSize: 15, fontWeight: '500' },
+  detailHeaderTitle: { fontSize: 16, fontWeight: '700' },
   detailShare: { padding: 4 },
   detailScroll: { flex: 1 },
   detailContent: { padding: 20, borderBottomWidth: 1 },
   detailMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  detailTitle: { fontSize: 20, fontWeight: '900', marginBottom: 12, lineHeight: 28 },
+  detailTitle: { fontSize: 20, fontWeight: '700', marginBottom: 12, lineHeight: 28 },
   detailBody: { fontSize: 15, lineHeight: 24, marginBottom: 20 },
   detailActions: { flexDirection: 'row', gap: 16, alignItems: 'center' },
   likeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#ff6b6b18', borderRadius: 20,
+    backgroundColor: c.raised, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#ff6b6b33',
   },
-  likeBtnActive: { backgroundColor: '#ff6b6b22', borderColor: '#ff6b6b88' },
+  likeBtnActive: { backgroundColor: c.dangerSubtle, borderColor: c.danger },
   likeBtnIcon: { fontSize: 18 },
-  likeBtnText: { fontSize: 15, fontWeight: '700', color: '#aaa' },
+  likeBtnText: { fontSize: 15, fontWeight: '700', color: c.textSecondary },
   commentCount: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  commentCountText: { fontSize: 15, fontWeight: '600' },
+  commentCountText: { fontSize: 15, fontWeight: '500' },
 
   commentsSection: { padding: 20 },
-  commentsSectionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 16 },
+  commentsSectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 16 },
   noComment: { fontSize: 13, textAlign: 'center', paddingVertical: 24 },
 
   commentItem: { paddingVertical: 12, borderBottomWidth: 1 },
   commentTop: { flexDirection: 'row', gap: 8, marginBottom: 5, alignItems: 'center' },
-  commentAuthor: { fontSize: 13, fontWeight: '700', color: '#a78bfa' },
-  commentTime: { fontSize: 11 },
+  commentAuthor: { fontSize: 13, fontWeight: '700', color: c.accentText },
+  commentTime: { fontSize: 12 },
   commentText: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
   commentActions: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   commentAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   commentActionIcon: { fontSize: 13 },
-  commentActionText: { fontSize: 12, fontWeight: '600' },
+  commentActionText: { fontSize: 12, fontWeight: '500' },
 
   replyItem: {
     flexDirection: 'row', paddingVertical: 10, paddingLeft: 16,
     paddingRight: 16, borderBottomWidth: 1, marginLeft: 20,
   },
   replyLine: {
-    width: 2, borderRadius: 1, backgroundColor: '#7c6fff55',
+    width: 2, borderRadius: 1, backgroundColor: c.accentSubtle,
     marginRight: 12, alignSelf: 'stretch',
   },
 
@@ -751,40 +754,40 @@ const styles = StyleSheet.create({
   },
   commentSendBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#7c6fff', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.accentFill, alignItems: 'center', justifyContent: 'center',
   },
-  commentSendBtnDisabled: { backgroundColor: '#2a2a40' },
-  commentSendBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  commentSendBtnDisabled: { backgroundColor: c.raised },
+  commentSendBtnText: { color: c.onAccent, fontSize: 16, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: c.overlay, justifyContent: 'flex-end' },
   modalCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '900' },
+  modalTitle: { fontSize: 18, fontWeight: '700' },
   modalClose: { fontSize: 18 },
-  titleInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontWeight: '600', marginBottom: 12 },
+  titleInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontWeight: '500', marginBottom: 12 },
   bodyInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, height: 140, marginBottom: 16 },
-  submitBtn: { backgroundColor: '#7c6fff', borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center' },
-  submitBtnDisabled: { backgroundColor: '#2a2a40' },
-  submitBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  postErrorText: { fontSize: 12, color: '#ff6b6b', marginBottom: 8, textAlign: 'center' },
+  submitBtn: { backgroundColor: c.accentFill, borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center' },
+  submitBtnDisabled: { backgroundColor: c.raised },
+  submitBtnText: { fontSize: 15, fontWeight: '700', color: c.onAccent },
+  postErrorText: { fontSize: 12, color: c.danger, marginBottom: 8, textAlign: 'center' },
 
   profileAvatar: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#7c6fff33', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: '#7c6fff',
+    backgroundColor: c.accentSubtle, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: c.accentFill,
   },
-  profileAvatarText: { fontSize: 28, fontWeight: '900', color: '#7c6fff' },
-  profileNickname: { fontSize: 18, fontWeight: '800' },
+  profileAvatarText: { fontSize: 28, fontWeight: '700', color: c.accentText },
+  profileNickname: { fontSize: 18, fontWeight: '700' },
   profileSchool: { fontSize: 13 },
   profileBtns: { flexDirection: 'row', gap: 10, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' },
   profileChatBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 14,
+    backgroundColor: c.accentFill, borderRadius: 14,
     paddingHorizontal: 20, paddingVertical: 11,
   },
-  profileChatBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  profileChatBtnText: { color: c.onAccent, fontSize: 14, fontWeight: '700' },
   profileFriendBtn: {
-    borderRadius: 14, borderWidth: 1.5, borderColor: '#7c6fff',
+    borderRadius: 14, borderWidth: 1.5, borderColor: c.accentFill,
     paddingHorizontal: 20, paddingVertical: 11,
   },
-  profileFriendBtnText: { color: '#7c6fff', fontSize: 14, fontWeight: '700' },
-});
+  profileFriendBtnText: { color: c.accentText, fontSize: 14, fontWeight: '700' },
+}));

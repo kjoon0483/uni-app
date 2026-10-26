@@ -1,8 +1,14 @@
+import { makeStyles } from '@/lib/makeStyles';
 import * as ImagePicker from 'expo-image-picker';
 import { geminiVision } from '@/lib/gemini';
 import { useState, useEffect } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useTheme } from '@/lib/ThemeContext';
+import { Feather } from '@expo/vector-icons';
+import Button from '@/components/ui/Button';
+import IconButton from '@/components/ui/IconButton';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import { CLASS_COLOR_KEYS, radius, resolveClassColor, type, withAlpha } from '@/constants/design';
 import { supabase } from '@/lib/supabase';
 import {
   ActivityIndicator,
@@ -13,13 +19,15 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  Pressable,
   View,
 } from 'react-native';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 9);
-const CLASS_COLORS = ['#7c6fff', '#ff6b6b', '#3eeea0', '#f59e0b', '#06b6d4', '#ff6b8a', '#a78bfa', '#34d399'];
-const TIME_WIDTH = 32;
+// 수업 색은 분류색 이름(sky, indigo …)으로 저장하고, 그릴 때 테마 색으로 바꾼다
+const CLASS_COLORS: string[] = CLASS_COLOR_KEYS;
+const TIME_WIDTH = 28;
 
 const isValidTimeStr = (t: string) => {
   if (!/^\d{2}:\d{2}$/.test(t)) return false;
@@ -103,6 +111,7 @@ const getClassSlots = (name: string, allClasses: ClassItem[]) =>
   }));
 
 export default function TimetableScreen() {
+  const styles = useStyles();
   const { colors } = useTheme();
   const { height: winH } = useWindowDimensions();
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -122,6 +131,9 @@ export default function TimetableScreen() {
   const [replaceConfirm, setReplaceConfirm] = useState(false);
   const [pendingBase64, setPendingBase64] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [savedSnapshot, setSavedSnapshot] = useState('[]');
+  const dirty = storageLoaded && JSON.stringify(classes) !== savedSnapshot;
+  const cc = (stored?: string) => resolveClassColor(stored, colors);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -134,8 +146,10 @@ export default function TimetableScreen() {
           .eq('user_id', uid)
           .single();
         if (row?.classes) {
-          const parsed = (row.classes as ClassItem[]).map(c => ({ professor: '', ...c }));
-          setClasses(assignColorsByName(parsed));
+          const parsed = (row.classes as ClassItem[]).map(c => ({ ...c, professor: c.professor ?? '' }));
+          const colored = assignColorsByName(parsed);
+          setClasses(colored);
+          setSavedSnapshot(JSON.stringify(colored));
         }
         setStorageLoaded(true);
       } else {
@@ -158,6 +172,7 @@ export default function TimetableScreen() {
       setTimeout(() => setSaveStatus('idle'), 2500);
     } else {
       setSaveStatus('saved');
+      setSavedSnapshot(JSON.stringify(classes));
       setTimeout(() => setSaveStatus('idle'), 2000);
     }
   };
@@ -186,7 +201,7 @@ export default function TimetableScreen() {
   }));
 
   // 헤더(62) + 탭바(60) + 요일헤더(36) + 마진(20) + 오늘띠(todayGrouped가 있으면 52)
-  const overhead = 62 + 60 + 36 + 20 + (todayGrouped.length > 0 ? 52 : 0);
+  const overhead = 120 + 60 + 36 + 20 + (todayGrouped.length > 0 ? 72 : 0);
   const cellH = Math.max(28, Math.floor((winH - overhead) / HOURS.length));
 
   const startOk = isValidTimeStr(form.startTime);
@@ -289,135 +304,107 @@ export default function TimetableScreen() {
   const canSaveEdit = editForm.name.trim() && editForm.slots.length > 0 && editForm.slots.every(editSlotValid);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <View>
-          <Text style={[styles.title, { color: colors.accent }]}>시간표</Text>
-          {classes.length > 0 && (
-            <Text style={[styles.subtitle, { color: colors.subText }]}>{classes.length}개 수업</Text>
-          )}
-        </View>
-        <View style={styles.headerBtns}>
-          <TouchableOpacity style={[styles.photoBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={analyzePhoto} disabled={analyzing}>
-            {analyzing ? <ActivityIndicator color="#7c6fff" size="small" /> : <Text style={[styles.photoBtnText, { color: colors.text }]}>📸 사진 등록</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setAddModal(true)}>
-            <Text style={styles.addBtnText}>+ 추가</Text>
-          </TouchableOpacity>
-          {classes.length > 0 && (
-            <TouchableOpacity
-              style={[styles.saveBtn,
-                saveStatus === 'saved' && { backgroundColor: '#3eeea0' },
-                saveStatus === 'error' && { backgroundColor: '#ff6b6b' },
-                saving && { opacity: 0.6 },
-              ]}
-              onPress={handleSave}
-              disabled={saving}>
-              {saving
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.saveBtnText}>
-                    {saveStatus === 'saved' ? '저장됨 ✓' : saveStatus === 'error' ? '실패 ✕' : '저장'}
-                  </Text>
-              }
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.base }]}>
+      <ScreenHeader
+        title="시간표"
+        subtitle={classes.length > 0 ? `${classes.length}개 수업` : undefined}
+        actions={
+          <>
+            {analyzing
+              ? <View style={styles.headerSpinner}><ActivityIndicator color={colors.accentText} /></View>
+              : <IconButton icon="camera" accessibilityLabel="사진으로 시간표 등록" onPress={analyzePhoto} />}
+            <IconButton icon="plus" accessibilityLabel="수업 추가" onPress={() => setAddModal(true)} />
+          </>
+        }
+      />
 
-      {analyzeError ? <Text style={styles.analyzeError}>{analyzeError}</Text> : null}
+      {analyzeError ? <Text style={[type.caption, styles.analyzeError, { color: colors.danger }]}>{analyzeError}</Text> : null}
 
       {classes.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>📅</Text>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>시간표가 비어있어요</Text>
-          <Text style={[styles.emptySub, { color: colors.subText }]}>사진을 찍거나 직접 추가해보세요</Text>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.accentSubtle }]}>
+            <Feather name="calendar" size={28} color={colors.accentText} />
+          </View>
+          <Text style={[type.titleMedium, { color: colors.textPrimary }]}>시간표가 비어있어요</Text>
+          <Text style={[type.bodyMedium, styles.emptySub, { color: colors.textSecondary }]}>사진을 찍거나 직접 추가해보세요</Text>
           <View style={styles.emptyBtns}>
-            <TouchableOpacity style={styles.emptyPhotoBtn} onPress={analyzePhoto} disabled={analyzing}>
-              {analyzing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.emptyPhotoBtnText}>📸 사진으로 등록</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.emptyAddBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddModal(true)}>
-              <Text style={[styles.emptyAddBtnText, { color: colors.subText }]}>✏️ 직접 추가하기</Text>
-            </TouchableOpacity>
+            <Button label="사진으로 등록" icon="camera" fullWidth loading={analyzing} onPress={analyzePhoto} />
+            <Button label="직접 추가하기" icon="plus" variant="secondary" fullWidth onPress={() => setAddModal(true)} />
           </View>
         </View>
       ) : (
         <>
-          {/* 오늘 수업 띠 */}
+          {/* 오늘 수업 */}
           {todayGrouped.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}
-              style={styles.todayScroll}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: 'center' }}>
-              <View style={styles.todayLabel}>
-                <Text style={styles.todayLabelText}>오늘</Text>
-              </View>
-              {todayGrouped.map((c, i) => (
-                <View key={i} style={[styles.todayCard, { backgroundColor: colors.card, borderLeftColor: c.color }]}>
-                  <View style={[styles.todayDot, { backgroundColor: c.color }]} />
-                  <View>
-                    <Text style={[styles.todayCardName, { color: colors.text }]}>{c.name}</Text>
-                    <Text style={[styles.todayCardTime, { color: colors.subText }]}>
-                      {c.mergedStart}–{c.mergedEnd}{c.room ? ` · ${c.room}` : ''}{c.professor ? ` · ${c.professor}` : ''}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
+            <View style={styles.todaySection}>
+              <Text style={[type.labelSmall, styles.todayHeading, { color: colors.textTertiary }]}>오늘 · {DAYS[todayIdx]}요일</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.todayContent}>
+                {todayGrouped.map((c, i) => (
+                  <Pressable key={i} onPress={() => setDetailName(c.name)}
+                    style={[styles.todayCard, { backgroundColor: colors.surface }]}>
+                    <View style={[styles.todayBar, { backgroundColor: cc(c.color) }]} />
+                    <View>
+                      <Text style={[type.labelMedium, { color: colors.textPrimary }]}>{c.name}</Text>
+                      <Text style={[type.caption, { color: colors.textTertiary }]}>
+                        {c.mergedStart}–{c.mergedEnd}{c.room ? ` · ${c.room}` : ''}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
           )}
 
           {/* 시간표 그리드 */}
           <View style={styles.grid}>
-            <View style={[styles.dayHeader, { borderBottomColor: colors.border }]}>
+            <View style={styles.dayHeader}>
               <View style={{ width: TIME_WIDTH }} />
               {DAYS.map((day, i) => (
-                <View key={i} style={[styles.dayCell, i === todayIdx && { backgroundColor: '#7c6fff' }]}>
-                  <Text style={[styles.dayText, { color: i === todayIdx ? '#fff' : colors.subText }]}>{day}</Text>
+                <View key={i} style={[styles.dayCell, i === todayIdx && { backgroundColor: colors.raised }]}>
+                  <Text style={[type.labelSmall, { color: i === todayIdx ? colors.textPrimary : colors.textTertiary }, i === todayIdx && styles.bold]}>{day}</Text>
                 </View>
               ))}
             </View>
             <View style={styles.gridBody}>
               <View style={{ width: TIME_WIDTH }}>
                 {HOURS.map(h => (
-                  <View key={h} style={{ height: cellH, justifyContent: 'flex-start', paddingTop: 2 }}>
-                    <Text style={[styles.timeText, { color: colors.subText }]}>{h}</Text>
+                  <View key={h} style={{ height: cellH }}>
+                    <Text style={[styles.timeText, { color: colors.textTertiary }]}>{h}</Text>
                   </View>
                 ))}
               </View>
               {DAYS.map((_, dayIdx) => (
                 <View key={dayIdx} style={[
-                  styles.dayColumn, { borderLeftColor: colors.border },
-                  dayIdx === todayIdx && { backgroundColor: '#7c6fff08' },
+                  styles.dayColumn,
+                  dayIdx === todayIdx && { backgroundColor: withAlpha(colors.raised, 0.6) },
                 ]}>
-                  {HOURS.map(h => <View key={h} style={{ height: cellH, borderBottomWidth: 1, borderBottomColor: colors.border }} />)}
+                  {HOURS.map(h => <View key={h} style={{ height: cellH, borderTopWidth: 1, borderTopColor: colors.borderDefault }} />)}
                   {mergeBlocks(classes.filter(c => c.day === dayIdx)).map((c, i) => {
                     const start = toDecimal(c.startTime);
                     const end = toDecimal(c.mergedEnd);
-                    const blockH = (end - start) * cellH - 2;
-                    const tiny = blockH < 26;
-                    const small = blockH >= 26 && blockH < 44;
+                    const blockH = (end - start) * cellH - 3;
+                    const color = cc(c.color);
+                    const roomy = blockH >= 52;
                     return (
-                      <TouchableOpacity
+                      <Pressable
                         key={i}
-                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${c.name} ${c.startTime}부터 ${c.mergedEnd}까지`}
                         onPress={() => setDetailName(c.name)}
                         style={[styles.classBlock, {
-                          backgroundColor: c.color + '30',
-                          borderLeftColor: c.color,
-                          top: (start - 9) * cellH,
+                          backgroundColor: withAlpha(color, 0.2),
+                          borderLeftColor: color,
+                          top: (start - 9) * cellH + 1.5,
                           height: blockH,
                         }]}>
-                        <Text style={[styles.className, { color: c.color, fontSize: tiny ? 8 : small ? 9 : 10 }]} numberOfLines={small ? 1 : 2}>
+                        <Text style={[styles.className, { color: colors.textPrimary }]} numberOfLines={roomy ? 2 : 1}>
                           {c.name}
                         </Text>
-                        {!tiny && (
-                          <Text style={[styles.classTime, { color: c.color + 'bb', fontSize: small ? 7 : 9 }]} numberOfLines={1}>
-                            {c.startTime}–{c.mergedEnd}
-                          </Text>
-                        )}
-                        {!tiny && !small && c.room ? (
-                          <Text style={[styles.classRoom, { color: colors.subText }]} numberOfLines={1}>{c.room}</Text>
+                        {roomy && c.room ? (
+                          <Text style={[styles.classRoom, { color: colors.textSecondary }]} numberOfLines={1}>{c.room}</Text>
                         ) : null}
-                      </TouchableOpacity>
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -425,6 +412,18 @@ export default function TimetableScreen() {
             </View>
           </View>
         </>
+      )}
+
+      {/* 저장 안내: 변경사항이 있을 때만 */}
+      {(dirty || saveStatus !== 'idle') && classes.length > 0 && (
+        <View style={[styles.saveBar, { backgroundColor: colors.raised, borderColor: colors.borderStrong }]}>
+          <Text style={[type.bodyMedium, styles.flex, { color: saveStatus === 'error' ? colors.danger : colors.textPrimary }]}>
+            {saveStatus === 'saved' ? '저장했어요' : saveStatus === 'error' ? '저장하지 못했어요. 다시 시도해주세요' : '변경사항을 저장하지 않았어요'}
+          </Text>
+          {saveStatus !== 'saved' && (
+            <Button label="저장" size="M" loading={saving} onPress={handleSave} />
+          )}
+        </View>
       )}
 
       {/* 수동 추가 모달 */}
@@ -473,9 +472,9 @@ export default function TimetableScreen() {
                 <Text style={styles.timeError}>{!startOk || !endOk ? '올바른 시간 형식이 아니에요' : '종료 시간이 시작 시간보다 늦어야 해요'}</Text>
               )}
               {form.name.trim() ? (
-                <View style={[styles.colorPreview, { backgroundColor: getColorForName(form.name.trim(), classes) + '22', borderColor: getColorForName(form.name.trim(), classes) }]}>
-                  <View style={[styles.colorDot, { backgroundColor: getColorForName(form.name.trim(), classes) }]} />
-                  <Text style={[styles.colorPreviewText, { color: getColorForName(form.name.trim(), classes) }]}>
+                <View style={[styles.colorPreview, { backgroundColor: withAlpha(cc(getColorForName(form.name.trim(), classes)), 0.13), borderColor: cc(getColorForName(form.name.trim(), classes)) }]}>
+                  <View style={[styles.colorDot, { backgroundColor: cc(getColorForName(form.name.trim(), classes)) }]} />
+                  <Text style={[styles.colorPreviewText, { color: colors.textPrimary }]}>
                     {classes.find(c => c.name === form.name.trim()) ? '기존 수업과 같은 색으로 추가돼요' : '새 색상이 배정돼요'}
                   </Text>
                 </View>
@@ -501,7 +500,7 @@ export default function TimetableScreen() {
         <View style={[styles.detailSheet, { backgroundColor: colors.card }]}>
           <View style={[styles.detailHandle, { backgroundColor: colors.border }]} />
           {detailName && (() => {
-            const color = classes.find(c => c.name === detailName)?.color ?? '#7c6fff';
+            const color = cc(classes.find(c => c.name === detailName)?.color);
             const room = classes.find(c => c.name === detailName)?.room ?? '';
             const professor = classes.find(c => c.name === detailName)?.professor ?? '';
             const slots = getClassSlots(detailName, classes);
@@ -511,31 +510,24 @@ export default function TimetableScreen() {
                   <View style={[styles.detailColorBar, { backgroundColor: color }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.detailName, { color: colors.text }]}>{detailName}</Text>
-                    {room ? <Text style={[styles.detailRoom, { color: colors.subText }]}>📍 {room}</Text> : null}
-                    {professor ? <Text style={[styles.detailRoom, { color: colors.subText }]}>👤 {professor} 교수님</Text> : null}
+                    {room ? <Text style={[styles.detailRoom, { color: colors.subText }]}>{room}</Text> : null}
+                    {professor ? <Text style={[styles.detailRoom, { color: colors.subText }]}>{professor} 교수님</Text> : null}
                   </View>
-                  <TouchableOpacity onPress={() => setDetailName(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={{ fontSize: 18, color: colors.subText }}>✕</Text>
-                  </TouchableOpacity>
+                  <IconButton icon="x" accessibilityLabel="닫기" color={colors.textSecondary} onPress={() => setDetailName(null)} />
                 </View>
 
                 <View style={styles.detailSlots}>
                   {slots.map((s, i) => (
-                    <View key={i} style={[styles.detailSlotRow, { backgroundColor: color + '18', borderColor: color + '44' }]}>
-                      <Text style={[styles.detailSlotDay, { color }]}>{DAYS[s.day]}요일</Text>
+                    <View key={i} style={[styles.detailSlotRow, { backgroundColor: withAlpha(color, 0.12), borderColor: withAlpha(color, 0.4) }]}>
+                      <Text style={[styles.detailSlotDay, { color: colors.textPrimary }]}>{DAYS[s.day]}요일</Text>
                       <Text style={[styles.detailSlotTime, { color: colors.text }]}>{s.startTime} – {s.endTime}</Text>
                     </View>
                   ))}
                 </View>
 
                 <View style={styles.detailBtns}>
-                  <TouchableOpacity style={[styles.editBtn, { borderColor: colors.border }]}
-                    onPress={() => { openEdit(detailName); }}>
-                    <Text style={[styles.editBtnText, { color: colors.text }]}>✏️ 편집</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteClass(detailName)}>
-                    <Text style={styles.deleteBtnText}>🗑 삭제</Text>
-                  </TouchableOpacity>
+                  <Button label="편집" icon="edit-3" variant="secondary" style={styles.flex} onPress={() => openEdit(detailName)} />
+                  <Button label="삭제" variant="danger" style={styles.flex} onPress={() => deleteClass(detailName)} />
                 </View>
               </>
             );
@@ -576,27 +568,27 @@ export default function TimetableScreen() {
                       {DAYS.map((d, di) => (
                         <TouchableOpacity key={di}
                           style={[styles.editDayPill, { borderColor: colors.border },
-                            s.day === di && { backgroundColor: editForm.slots[0] ? classes.find(c => c.name === editOrigName)?.color ?? '#7c6fff' : '#7c6fff', borderColor: 'transparent' }]}
+                            s.day === di && { backgroundColor: colors.accentFill, borderColor: 'transparent' }]}
                           onPress={() => setEditForm(p => ({ ...p, slots: p.slots.map((sl, si) => si === i ? { ...sl, day: di } : sl) }))}>
-                          <Text style={[styles.editDayPillText, { color: s.day === di ? '#fff' : colors.subText }]}>{d}</Text>
+                          <Text style={[styles.editDayPillText, { color: s.day === di ? colors.onAccent : colors.subText }]}>{d}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
                     <View style={styles.editSlotTimeRow}>
                       <TextInput
-                        style={[styles.editTimeInput, { backgroundColor: colors.card, borderColor: sOk || s.startTime.length < 5 ? colors.border : '#ff6b6b', color: colors.text }]}
+                        style={[styles.editTimeInput, { backgroundColor: colors.card, borderColor: sOk || s.startTime.length < 5 ? colors.border : colors.danger, color: colors.text }]}
                         value={s.startTime}
                         onChangeText={v => setEditForm(p => ({ ...p, slots: p.slots.map((sl, si) => si === i ? { ...sl, startTime: formatTimeInput(v) } : sl) }))}
                         keyboardType="numeric" maxLength={5} placeholder="09:00" placeholderTextColor={colors.subText} />
                       <Text style={{ color: colors.subText, fontWeight: '700' }}>–</Text>
                       <TextInput
-                        style={[styles.editTimeInput, { backgroundColor: colors.card, borderColor: eOk && orderOk || s.endTime.length < 5 ? colors.border : '#ff6b6b', color: colors.text }]}
+                        style={[styles.editTimeInput, { backgroundColor: colors.card, borderColor: eOk && orderOk || s.endTime.length < 5 ? colors.border : colors.danger, color: colors.text }]}
                         value={s.endTime}
                         onChangeText={v => setEditForm(p => ({ ...p, slots: p.slots.map((sl, si) => si === i ? { ...sl, endTime: formatTimeInput(v) } : sl) }))}
                         keyboardType="numeric" maxLength={5} placeholder="10:30" placeholderTextColor={colors.subText} />
                       <TouchableOpacity onPress={() => setEditForm(p => ({ ...p, slots: p.slots.filter((_, si) => si !== i) }))}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={{ color: '#ff6b6b', fontSize: 16, fontWeight: '700' }}>✕</Text>
+                        <Text style={{ color: colors.danger, fontSize: 16, fontWeight: '700' }}>✕</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -653,101 +645,88 @@ export default function TimetableScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderBottomWidth: 1,
-  },
-  title: { fontSize: 22, fontWeight: '900' },
-  subtitle: { fontSize: 12, marginTop: 2 },
-  headerBtns: { flexDirection: 'row', gap: 8 },
-  photoBtn: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7, minWidth: 90, alignItems: 'center' },
-  photoBtnText: { fontSize: 12, fontWeight: '600' },
-  addBtn: { backgroundColor: '#7c6fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7 },
-  addBtnText: { fontSize: 12, color: '#fff', fontWeight: '700' },
-  saveBtn: { backgroundColor: '#22c55e', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, minWidth: 52, alignItems: 'center', justifyContent: 'center' },
-  saveBtnText: { fontSize: 12, color: '#fff', fontWeight: '700' },
-  analyzeError: { color: '#ff6b6b', fontSize: 12, textAlign: 'center', marginVertical: 6 },
+  flex: { flex: 1 },
+  bold: { fontWeight: '700' },
+  headerSpinner: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  analyzeError: { textAlign: 'center', marginHorizontal: 20, marginBottom: 8 },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  emptyEmoji: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
-  emptySub: { fontSize: 14, marginBottom: 32 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 4 },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptySub: { marginBottom: 28 },
   emptyBtns: { width: '100%', gap: 12 },
-  emptyPhotoBtn: { backgroundColor: '#7c6fff', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
-  emptyPhotoBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  emptyAddBtn: { borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  emptyAddBtnText: { fontSize: 15, fontWeight: '700' },
 
-  todayScroll: { flexGrow: 0, marginBottom: 8 },
-  todayLabel: { backgroundColor: '#7c6fff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  todayLabelText: { fontSize: 11, color: '#fff', fontWeight: '900' },
-  todayCard: { borderRadius: 10, borderLeftWidth: 3, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  todayDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
-  todayCardName: { fontSize: 13, fontWeight: '700' },
-  todayCardTime: { fontSize: 10, marginTop: 2 },
+  todaySection: { gap: 8, marginBottom: 12 },
+  todayHeading: { paddingHorizontal: 20 },
+  todayContent: { paddingHorizontal: 20, gap: 8 },
+  todayCard: { borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  todayBar: { width: 4, height: 36, borderRadius: 2 },
 
   grid: { flex: 1 },
-  dayHeader: { flexDirection: 'row', borderBottomWidth: 1, paddingBottom: 6, marginHorizontal: 8 },
-  dayCell: { flex: 1, alignItems: 'center', paddingVertical: 5, borderRadius: 8, marginHorizontal: 1 },
-  dayText: { fontSize: 12, fontWeight: '700' },
-  gridBody: { flexDirection: 'row', marginHorizontal: 8 },
-  timeText: { fontSize: 10, textAlign: 'right', paddingRight: 6 },
-  dayColumn: { flex: 1, position: 'relative', borderLeftWidth: 1 },
+  dayHeader: { flexDirection: 'row', paddingBottom: 6, marginHorizontal: 12 },
+  dayCell: { flex: 1, alignItems: 'center', paddingVertical: 4, borderRadius: radius.sm, marginHorizontal: 1 },
+  gridBody: { flexDirection: 'row', marginHorizontal: 12 },
+  timeText: { fontSize: 11, lineHeight: 14, textAlign: 'right', paddingRight: 6, marginTop: -7 },
+  dayColumn: { flex: 1, position: 'relative', borderRadius: radius.sm },
   classBlock: {
     position: 'absolute', left: 2, right: 2,
-    borderLeftWidth: 3, borderRadius: 6,
-    paddingHorizontal: 5, paddingVertical: 4,
+    borderLeftWidth: 3, borderRadius: radius.sm,
+    paddingHorizontal: 5, paddingVertical: 5,
     overflow: 'hidden', gap: 2,
   },
-  className: { fontWeight: '800', lineHeight: 14 },
-  classTime: { fontWeight: '600', lineHeight: 13 },
-  classRoom: { fontSize: 9, lineHeight: 12 },
+  className: { fontSize: 12, fontWeight: '700', lineHeight: 15 },
+  classRoom: { fontSize: 11, lineHeight: 14 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  saveBar: {
+    position: 'absolute', left: 20, right: 20, bottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: radius.md, borderWidth: 1, paddingLeft: 16, paddingRight: 6, paddingVertical: 6,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 6,
+  },
+  modalOverlay: { flex: 1, backgroundColor: c.overlay, justifyContent: 'flex-end' },
   modalCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 },
-  modalTitle: { fontSize: 18, fontWeight: '900', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20 },
   modalLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 4 },
   modalInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, marginBottom: 14 },
   pillRow: { flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
   pill: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 7 },
-  pillActive: { backgroundColor: '#7c6fff', borderColor: '#7c6fff' },
-  pillText: { fontSize: 13, fontWeight: '600' },
-  pillTextActive: { color: '#fff' },
+  pillActive: { backgroundColor: c.accentFill, borderColor: c.accentFill },
+  pillText: { fontSize: 13, fontWeight: '500' },
+  pillTextActive: { color: c.onAccent },
   timeInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 4 },
   timeInputBlock: { flex: 1 },
   timeInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 14, fontSize: 20, fontWeight: '700', textAlign: 'center', letterSpacing: 2 },
-  timeInputError: { borderColor: '#ff6b6b' },
+  timeInputError: { borderColor: c.danger },
   timeSeparator: { fontSize: 20, fontWeight: '700', paddingBottom: 14 },
-  timeHint: { fontSize: 11, marginBottom: 6, marginTop: 4 },
-  timeError: { fontSize: 12, color: '#ff6b6b', marginBottom: 10 },
+  timeHint: { fontSize: 12, marginBottom: 6, marginTop: 4 },
+  timeError: { fontSize: 12, color: c.danger, marginBottom: 10 },
   colorPreview: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14 },
   colorDot: { width: 8, height: 8, borderRadius: 4 },
-  colorPreviewText: { fontSize: 12, fontWeight: '600' },
+  colorPreviewText: { fontSize: 12, fontWeight: '500' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 8 },
   modalCancel: { flex: 1, height: 50, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  modalCancelText: { fontSize: 15, fontWeight: '600' },
-  modalConfirm: { flex: 1, height: 50, borderRadius: 14, backgroundColor: '#7c6fff', alignItems: 'center', justifyContent: 'center' },
-  modalConfirmDisabled: { backgroundColor: '#7c6fff44' },
-  modalConfirmText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  modalCancelText: { fontSize: 15, fontWeight: '500' },
+  modalConfirm: { flex: 1, height: 50, borderRadius: 14, backgroundColor: c.accentFill, alignItems: 'center', justifyContent: 'center' },
+  modalConfirmDisabled: { backgroundColor: c.accentFill, opacity: 0.4 },
+  modalConfirmText: { color: c.onAccent, fontSize: 15, fontWeight: '700' },
 
   detailBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   detailSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 },
   detailHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   detailHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
   detailColorBar: { width: 5, borderRadius: 3, alignSelf: 'stretch', minHeight: 40 },
-  detailName: { fontSize: 20, fontWeight: '900', marginBottom: 4 },
+  detailName: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
   detailRoom: { fontSize: 13 },
   detailSlots: { gap: 8, marginBottom: 20 },
   detailSlotRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 12 },
-  detailSlotDay: { fontSize: 14, fontWeight: '800' },
-  detailSlotTime: { fontSize: 14, fontWeight: '600' },
+  detailSlotDay: { fontSize: 14, fontWeight: '700' },
+  detailSlotTime: { fontSize: 14, fontWeight: '500' },
   detailBtns: { flexDirection: 'row', gap: 10 },
   editBtn: { flex: 1, height: 50, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   editBtnText: { fontSize: 15, fontWeight: '700' },
-  deleteBtn: { flex: 1, height: 50, borderRadius: 14, backgroundColor: '#ff6b6b18', borderWidth: 1, borderColor: '#ff6b6b55', alignItems: 'center', justifyContent: 'center' },
-  deleteBtnText: { color: '#ff6b6b', fontSize: 15, fontWeight: '700' },
+  deleteBtn: { flex: 1, height: 50, borderRadius: 14, backgroundColor: c.dangerSubtle, alignItems: 'center', justifyContent: 'center' },
+  deleteBtnText: { color: c.danger, fontSize: 15, fontWeight: '700' },
 
   editSlotRow: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 10, gap: 8 },
   editSlotDayWrap: { flexDirection: 'row', gap: 6 },
@@ -756,16 +735,16 @@ const styles = StyleSheet.create({
   editSlotTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   editTimeInput: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 8, paddingHorizontal: 10, fontSize: 15, fontWeight: '700', textAlign: 'center' },
   addSlotBtn: { borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', height: 44, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  addSlotBtnText: { fontSize: 13, fontWeight: '600' },
+  addSlotBtnText: { fontSize: 13, fontWeight: '500' },
 
-  confirmBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  confirmBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay },
   confirmWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   confirmCard: { width: '100%', borderRadius: 20, padding: 24, gap: 4 },
-  confirmTitle: { fontSize: 17, fontWeight: '900', marginBottom: 6 },
+  confirmTitle: { fontSize: 17, fontWeight: '700', marginBottom: 6 },
   confirmSub: { fontSize: 13, lineHeight: 20, marginBottom: 20 },
   confirmBtns: { flexDirection: 'row', gap: 10 },
   confirmCancel: { flex: 1, height: 48, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  confirmCancelText: { fontSize: 14, fontWeight: '600' },
-  confirmOk: { flex: 1, height: 48, borderRadius: 14, backgroundColor: '#7c6fff', alignItems: 'center', justifyContent: 'center' },
-  confirmOkText: { fontSize: 14, fontWeight: '800', color: '#fff' },
-});
+  confirmCancelText: { fontSize: 14, fontWeight: '500' },
+  confirmOk: { flex: 1, height: 48, borderRadius: 14, backgroundColor: c.accentFill, alignItems: 'center', justifyContent: 'center' },
+  confirmOkText: { fontSize: 14, fontWeight: '700', color: c.onAccent },
+}));

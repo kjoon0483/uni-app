@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -27,6 +29,8 @@ type Post = {
 };
 
 export default function AdminPosts() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,7 +124,7 @@ export default function AdminPosts() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="제목, 내용, 작성자 검색..."
-          placeholderTextColor="#44445a"
+          placeholderTextColor={colors.textTertiary}
         />
       </View>
 
@@ -143,7 +147,7 @@ export default function AdminPosts() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color="#7c6fff" />
+          <ActivityIndicator color={colors.accentText} />
         </View>
       ) : (
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -178,7 +182,7 @@ export default function AdminPosts() {
                     disabled={deletingId === post.id}
                   >
                     {deletingId === post.id
-                      ? <ActivityIndicator size="small" color="#ff6666" />
+                      ? <ActivityIndicator size="small" color={colors.danger} />
                       : <Text style={styles.deleteBtnText}>삭제</Text>
                     }
                   </TouchableOpacity>
@@ -193,79 +197,79 @@ export default function AdminPosts() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
+const useStyles = makeStyles((c) => ({
+  container: { flex: 1, backgroundColor: c.base },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: 55, paddingBottom: 12,
   },
   backBtn: { paddingRight: 8 },
-  backText: { color: '#7c6fff', fontSize: 14 },
-  title: { flex: 1, fontSize: 20, fontWeight: '900', color: '#eee' },
-  count: { fontSize: 14, color: '#666' },
+  backText: { color: c.accentText, fontSize: 14 },
+  title: { flex: 1, fontSize: 20, fontWeight: '700', color: c.textPrimary },
+  count: { fontSize: 14, color: c.textTertiary },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
-  emptyText: { color: '#555', fontSize: 14 },
+  emptyText: { color: c.textTertiary, fontSize: 14 },
 
   errorBanner: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#ff444422', borderWidth: 1, borderColor: '#ff4444',
+    backgroundColor: c.dangerSubtle, borderWidth: 1, borderColor: c.danger,
     marginHorizontal: 16, marginBottom: 8, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10,
   },
-  errorBannerText: { flex: 1, color: '#ff6666', fontSize: 12 },
-  errorClose: { color: '#ff6666', fontSize: 14, fontWeight: '700', paddingLeft: 8 },
+  errorBannerText: { flex: 1, color: c.danger, fontSize: 12 },
+  errorClose: { color: c.danger, fontSize: 14, fontWeight: '700', paddingLeft: 8 },
 
   searchBox: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#13131a', borderRadius: 14,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: c.borderDefault,
     marginHorizontal: 16, marginBottom: 8,
     paddingHorizontal: 14, paddingVertical: 10,
   },
   searchIcon: { fontSize: 14, marginRight: 8 },
-  searchInput: { flex: 1, color: '#eee', fontSize: 13 },
+  searchInput: { flex: 1, color: c.textPrimary, fontSize: 13 },
 
   tabScroll: { flexGrow: 0, marginBottom: 8 },
   tabRow: { paddingHorizontal: 16, gap: 8, flexDirection: 'row' },
   tabBtn: {
     paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, backgroundColor: '#13131a',
-    borderWidth: 1, borderColor: '#2a2a40',
+    borderRadius: 20, backgroundColor: c.surface,
+    borderWidth: 1, borderColor: c.borderDefault,
   },
-  tabBtnActive: { backgroundColor: '#7c6fff22', borderColor: '#7c6fff' },
-  tabText: { fontSize: 12, color: '#666', fontWeight: '600' },
-  tabTextActive: { color: '#7c6fff' },
+  tabBtnActive: { backgroundColor: c.accentSubtle, borderColor: c.accentFill },
+  tabText: { fontSize: 12, color: c.textTertiary, fontWeight: '500' },
+  tabTextActive: { color: c.accentText },
 
   content: { flex: 1, paddingHorizontal: 16 },
   postCard: {
-    backgroundColor: '#13131a', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1e1e30',
+    backgroundColor: c.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: c.borderDefault,
     padding: 14, marginBottom: 10,
   },
   postTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   catBadge: {
-    backgroundColor: '#1a1a2e', borderRadius: 8,
+    backgroundColor: c.surface, borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  catText: { fontSize: 10, color: '#7c6fff', fontWeight: '700' },
+  catText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
   anonBadge: {
-    backgroundColor: '#2a2a2a', borderRadius: 8,
+    backgroundColor: c.raised, borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  anonText: { fontSize: 10, color: '#888', fontWeight: '700' },
-  date: { fontSize: 11, color: '#555', marginLeft: 'auto' },
-  postTitle: { fontSize: 14, fontWeight: '700', color: '#eee', marginBottom: 4 },
-  postContent: { fontSize: 12, color: '#888', lineHeight: 18, marginBottom: 10 },
+  anonText: { fontSize: 12, color: c.textSecondary, fontWeight: '700' },
+  date: { fontSize: 12, color: c.textTertiary, marginLeft: 'auto' },
+  postTitle: { fontSize: 14, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
+  postContent: { fontSize: 12, color: c.textSecondary, lineHeight: 18, marginBottom: 10 },
   postFooter: { flexDirection: 'row', alignItems: 'center' },
-  author: { flex: 1, fontSize: 11, color: '#666' },
+  author: { flex: 1, fontSize: 12, color: c.textTertiary },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  metaText: { fontSize: 11, color: '#555' },
+  metaText: { fontSize: 12, color: c.textTertiary },
   deleteBtn: {
-    backgroundColor: '#ff444422', borderRadius: 8,
+    backgroundColor: c.dangerSubtle, borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: '#ff4444',
+    borderWidth: 1, borderColor: c.danger,
     minWidth: 44, alignItems: 'center',
   },
   deleteBtnDisabled: { opacity: 0.5 },
-  deleteBtnText: { fontSize: 11, color: '#ff6666', fontWeight: '700' },
-});
+  deleteBtnText: { fontSize: 12, color: c.danger, fontWeight: '700' },
+}));

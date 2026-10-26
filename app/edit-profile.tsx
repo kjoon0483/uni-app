@@ -1,3 +1,4 @@
+import { makeStyles } from '@/lib/makeStyles';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -71,6 +72,7 @@ const SCHOOLS = [
 ];
 
 export default function EditProfileScreen() {
+  const styles = useStyles();
   const { colors } = useTheme();
   const [nickname, setNickname] = useState('');
   const [schoolQuery, setSchoolQuery] = useState('');
@@ -167,7 +169,7 @@ export default function EditProfileScreen() {
 
           {/* 현재 선택 학교 */}
           {selectedSchool && !showSchoolPicker && (
-            <View style={[styles.selectedCard, { backgroundColor: colors.card, borderColor: '#7c6fff' }]}>
+            <View style={[styles.selectedCard, { backgroundColor: colors.card, borderColor: colors.accentFill }]}>
               <Text style={styles.selectedEmoji}>{selectedSchool.emoji}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.selectedName, { color: colors.text }]}>{selectedSchool.name}</Text>
@@ -255,7 +257,7 @@ export default function EditProfileScreen() {
             onPress={handleSave}
             disabled={loading}>
             {loading
-              ? <ActivityIndicator color="#fff" />
+              ? <ActivityIndicator color={colors.onAccent} />
               : <Text style={styles.saveBtnText}>저장하기</Text>}
           </TouchableOpacity>
         )}
@@ -264,13 +266,13 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 55, paddingBottom: 20 },
   backBtn: { fontSize: 14, marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '900' },
+  title: { fontSize: 24, fontWeight: '700' },
   section: { paddingHorizontal: 20, marginBottom: 24 },
-  label: { fontSize: 13, fontWeight: '600', marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: '500', marginBottom: 8 },
   input: {
     borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 15, borderWidth: 1,
@@ -283,10 +285,10 @@ const styles = StyleSheet.create({
   selectedName: { fontSize: 15, fontWeight: '700' },
   selectedRegion: { fontSize: 12, marginTop: 2 },
   changeBtn: {
-    backgroundColor: '#2a2a40', borderRadius: 10,
+    backgroundColor: c.raised, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 6,
   },
-  changeBtnText: { fontSize: 12, color: '#aaa', fontWeight: '600' },
+  changeBtnText: { fontSize: 12, color: c.textSecondary, fontWeight: '500' },
   selectBtn: {
     borderRadius: 14, borderWidth: 1,
     paddingHorizontal: 16, paddingVertical: 14,
@@ -309,17 +311,17 @@ const styles = StyleSheet.create({
   },
   customItem: {},
   schoolEmoji: { fontSize: 22 },
-  schoolItemName: { fontSize: 14, fontWeight: '600' },
-  schoolItemRegion: { fontSize: 11, marginTop: 2 },
-  customName: { fontSize: 14, fontWeight: '700', color: '#3eeea0' },
+  schoolItemName: { fontSize: 14, fontWeight: '500' },
+  schoolItemRegion: { fontSize: 12, marginTop: 2 },
+  customName: { fontSize: 14, fontWeight: '700', color: c.success },
   cancelBtn: { padding: 12, alignItems: 'center' },
   cancelBtnText: { fontSize: 14 },
-  errorText: { fontSize: 13, color: '#ff6b6b', textAlign: 'center', marginBottom: 8, marginHorizontal: 20 },
-  successText: { fontSize: 14, color: '#3eeea0', textAlign: 'center', fontWeight: '700', marginBottom: 8 },
+  errorText: { fontSize: 13, color: c.danger, textAlign: 'center', marginBottom: 8, marginHorizontal: 20 },
+  successText: { fontSize: 14, color: c.success, textAlign: 'center', fontWeight: '700', marginBottom: 8 },
   saveBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 28,
+    backgroundColor: c.accentFill, borderRadius: 28,
     height: 56, alignItems: 'center', justifyContent: 'center',
     marginHorizontal: 20, marginTop: 8,
   },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-});
+  saveBtnText: { color: c.onAccent, fontSize: 16, fontWeight: '700' },
+}));

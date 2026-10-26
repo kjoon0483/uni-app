@@ -1,22 +1,27 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Button from '@/components/ui/Button';
+import Chip from '@/components/ui/Chip';
+import OnboardingNav from '@/components/ui/OnboardingNav';
+import TextField from '@/components/ui/TextField';
+import { radius, type } from '@/constants/design';
 import { supabase } from '@/lib/supabase';
 
 const GRADES = ['1학년', '2학년', '3학년', '4학년'];
 
 export default function ProfileSetupScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [studentId, setStudentId] = useState('');
   const [department, setDepartment] = useState('');
   const [grade, setGrade] = useState('');
+  const insets = useSafeAreaInsets();
   const [school, setSchool] = useState<{ name: string; region: string; emoji: string } | null>(null);
 
   useEffect(() => {
@@ -57,112 +62,55 @@ export default function ProfileSetupScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}>
+    <View style={[styles.container, { backgroundColor: colors.base, paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
+      <OnboardingNav step={3} onBack={router.canGoBack() ? () => router.back() : undefined} />
 
-      <Text style={styles.title}>기본 정보를 입력해요</Text>
-      <Text style={styles.sub}>커뮤니티에서 학교 인증에 사용돼요</Text>
+      <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.title, { color: colors.textPrimary }]}>기본 정보를 알려주세요</Text>
+        <Text style={[type.bodyLarge, styles.sub, { color: colors.textSecondary }]}>학교 인증과 맞춤 추천에만 사용돼요</Text>
 
-      {/* 선택된 학교 표시 */}
-      {school && (
-        <View style={styles.schoolBadge}>
-          <Text style={styles.schoolEmoji}>{school.emoji}</Text>
-          <View>
-            <Text style={styles.schoolName}>{school.name}</Text>
-            <Text style={styles.schoolRegion}>📍 {school.region}</Text>
+        {school && (
+          <View style={[styles.schoolCard, { backgroundColor: colors.surface }]}>
+            <Feather name="map-pin" size={18} color={colors.accentText} />
+            <Text style={[type.labelMedium, styles.flex, { color: colors.textPrimary }]} numberOfLines={1}>{school.name}</Text>
+            <Button label="변경" variant="ghost" size="M" onPress={() => router.push('/onboarding/school')} />
+          </View>
+        )}
+
+        <View style={styles.form}>
+          <TextField label="학번" placeholder="예: 20240001" value={studentId} onChangeText={setStudentId} keyboardType="number-pad" />
+          <TextField label="학과" placeholder="예: 컴퓨터공학과" value={department} onChangeText={setDepartment} />
+          <View style={styles.gradeGroup}>
+            <Text style={[type.labelMedium, { color: colors.textSecondary }]}>학년</Text>
+            <View style={styles.gradeRow}>
+              {GRADES.map(g => (
+                <Chip key={g} label={g} selected={grade === g} onPress={() => setGrade(g)} style={styles.flex} />
+              ))}
+            </View>
           </View>
         </View>
-      )}
+      </ScrollView>
 
-      {/* 학번 */}
-      <View style={styles.section}>
-        <Text style={styles.label}>학번</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="예: 20240001"
-          placeholderTextColor="#555"
-          value={studentId}
-          onChangeText={setStudentId}
-          keyboardType="number-pad"
-        />
+      <View style={styles.bottom}>
+        <Button label="Uni 시작하기" fullWidth disabled={!isReady} onPress={handleDone} />
+        {!isReady && (
+          <Text style={[type.caption, styles.hint, { color: colors.textTertiary }]}>학번, 학과, 학년을 입력하면 시작할 수 있어요</Text>
+        )}
       </View>
-
-      {/* 학과 */}
-      <View style={styles.section}>
-        <Text style={styles.label}>학과</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="예: 컴퓨터공학과"
-          placeholderTextColor="#555"
-          value={department}
-          onChangeText={setDepartment}
-        />
-      </View>
-
-      {/* 학년 */}
-      <View style={styles.section}>
-        <Text style={styles.label}>학년</Text>
-        <View style={styles.gradeRow}>
-          {GRADES.map((g) => (
-            <TouchableOpacity
-              key={g}
-              style={[styles.gradeBtn, grade === g && styles.gradeBtnActive]}
-              onPress={() => setGrade(g)}>
-              <Text style={[styles.gradeText, grade === g && styles.gradeTextActive]}>
-                {g}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* 완료 버튼 */}
-      <TouchableOpacity
-        style={[styles.doneBtn, !isReady && styles.doneBtnDisabled]}
-        onPress={handleDone}
-        disabled={!isReady}>
-        <Text style={styles.doneText}>
-          {isReady ? 'Uni 시작하기 🚀' : '모두 입력해주세요'}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d', paddingHorizontal: 24, paddingTop: 60 },
-  title: { fontSize: 26, fontWeight: '900', color: '#fff', marginBottom: 8 },
-  sub: { fontSize: 14, color: '#888', marginBottom: 24 },
-  schoolBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: 'rgba(124,111,255,0.1)', borderRadius: 14,
-    borderWidth: 1, borderColor: '#7c6fff',
-    padding: 14, marginBottom: 28,
-  },
-  schoolEmoji: { fontSize: 28 },
-  schoolName: { fontSize: 15, fontWeight: '700', color: '#eee' },
-  schoolRegion: { fontSize: 12, color: '#888', marginTop: 2 },
-  section: { marginBottom: 24 },
-  label: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 8 },
-  input: {
-    backgroundColor: '#13131a', borderRadius: 14,
-    paddingHorizontal: 16, paddingVertical: 14,
-    color: '#fff', fontSize: 15,
-    borderWidth: 1, borderColor: '#2a2a40',
-  },
-  gradeRow: { flexDirection: 'row', gap: 10 },
-  gradeBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: '#13131a', alignItems: 'center',
-    borderWidth: 1, borderColor: '#2a2a40',
-  },
-  gradeBtnActive: { backgroundColor: 'rgba(124,111,255,0.15)', borderColor: '#7c6fff' },
-  gradeText: { fontSize: 14, fontWeight: '700', color: '#555' },
-  gradeTextActive: { color: '#7c6fff' },
-  doneBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 28,
-    height: 56, alignItems: 'center', justifyContent: 'center', marginTop: 16,
-  },
-  doneBtnDisabled: { backgroundColor: '#2a2a40' },
-  doneText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-});
+const useStyles = makeStyles(() => ({
+  container: { flex: 1 },
+  flex: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 24 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
+  sub: { marginTop: 8, marginBottom: 24 },
+  schoolCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: radius.md, paddingLeft: 14, paddingRight: 4, minHeight: 52, marginBottom: 20 },
+  form: { gap: 16 },
+  gradeGroup: { gap: 8 },
+  gradeRow: { flexDirection: 'row', gap: 8 },
+  bottom: { paddingHorizontal: 20, gap: 8 },
+  hint: { textAlign: 'center' },
+}));

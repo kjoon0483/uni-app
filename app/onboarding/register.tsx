@@ -1,20 +1,31 @@
-import { router } from 'expo-router';
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
+  ScrollView,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Button from '@/components/ui/Button';
+import OnboardingNav from '@/components/ui/OnboardingNav';
+import TextField from '@/components/ui/TextField';
+import { type } from '@/constants/design';
 import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
-  const [mode, setMode] = useState<'select' | 'register' | 'login' | 'forgot' | 'otp'>('select');
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<'select' | 'register' | 'login' | 'forgot' | 'otp'>(
+    params.mode === 'login' || params.mode === 'forgot' || params.mode === 'register' ? params.mode : 'select',
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
@@ -52,7 +63,7 @@ export default function RegisterScreen() {
       } else if (data?.user?.identities?.length === 0) {
         setErrorMsg('이미 가입된 이메일이에요. 로그인해주세요');
       } else {
-        setSuccessMsg(`${nickname}님, 환영해요! 🎉`);
+        setSuccessMsg(`${nickname}님, 환영해요!`);
         setTimeout(() => router.replace('/onboarding/school'), 1500);
       }
     } catch (e: any) {
@@ -88,7 +99,7 @@ export default function RegisterScreen() {
           return;
         }
         const name = data.user?.user_metadata?.nickname ?? '';
-        setSuccessMsg(name ? `${name}님, 돌아오셨군요! 👋` : '환영해요! 👋');
+        setSuccessMsg(name ? `${name}님, 돌아오셨군요!` : '환영해요!');
         setTimeout(() => router.replace('/(tabs)'), 800);
       }
     } catch (e: any) {
@@ -140,211 +151,131 @@ export default function RegisterScreen() {
     }
   };
 
-  // 비밀번호 찾기 - 이메일
-  if (mode === 'forgot') {
-    return (
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableOpacity style={styles.back} onPress={() => { setMode('login'); clearMessages(); }}>
-          <Text style={styles.backText}>← 뒤로</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>비밀번호 찾기</Text>
-        <Text style={styles.sub}>가입한 이메일로 6자리 인증코드를 보내드려요</Text>
-        <View style={styles.form}>
-          <View style={styles.inputWrap}>
-            <Text style={styles.label}>이메일</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="가입한 이메일 입력"
-              placeholderTextColor="#555"
-              value={email}
-              onChangeText={v => { setEmail(v); clearMessages(); }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-        </View>
-        {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-        <TouchableOpacity
-          style={[styles.registerBtn, loading && { opacity: 0.6 }]}
-          onPress={handleForgotPassword}
-          disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>인증코드 받기 →</Text>}
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    );
-  }
-
-  // 비밀번호 찾기 - OTP
-  if (mode === 'otp') {
-    return (
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableOpacity style={styles.back} onPress={() => { setMode('forgot'); clearMessages(); }}>
-          <Text style={styles.backText}>← 뒤로</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>인증코드 입력</Text>
-        <Text style={styles.sub}>{email}{'\n'}으로 보낸 6자리 코드를 입력해주세요</Text>
-        <View style={styles.form}>
-          <View style={styles.inputWrap}>
-            <Text style={styles.label}>인증코드</Text>
-            <TextInput
-              style={[styles.input, { letterSpacing: 8, fontSize: 26, textAlign: 'center' }]}
-              placeholder="000000"
-              placeholderTextColor="#333"
-              value={otpCode}
-              onChangeText={v => { setOtpCode(v.replace(/\D/g, '').slice(0, 6)); clearMessages(); }}
-              keyboardType="number-pad"
-              maxLength={6}
-            />
-          </View>
-        </View>
-        {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-        <TouchableOpacity
-          style={[styles.registerBtn, loading && { opacity: 0.6 }]}
-          onPress={handleVerifyOtp}
-          disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>확인 →</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.forgotBtn} onPress={handleForgotPassword}>
-          <Text style={styles.forgotText}>코드 재발송</Text>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    );
-  }
+  const back = () => {
+    clearMessages();
+    if (mode === 'otp') setMode('forgot');
+    else if (mode === 'forgot') setMode('login');
+    else if (mode === 'select' && router.canGoBack()) router.back();
+    else setMode('select');
+  };
 
   // 첫 화면
   if (mode === 'select') {
     return (
-      <View style={styles.container}>
-        <View style={styles.center}>
-          <Text style={styles.logo}>Uni ✦</Text>
-          <Text style={styles.title}>시작해볼까요?</Text>
-          <Text style={styles.sub}>신구대학교 학생 전용 커뮤니티</Text>
+      <View style={[styles.container, { backgroundColor: colors.base, paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}>
+        <View style={styles.selectBody}>
+          <Text style={[styles.logo, { color: colors.accentText }]}>Uni ✦</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>시작해볼까요?</Text>
+          <Text style={[type.bodyLarge, { color: colors.textSecondary }]}>신구대학교 학생 전용 AI 커뮤니티</Text>
         </View>
         <View style={styles.btnGroup}>
-          <TouchableOpacity style={styles.registerBtn} onPress={() => { setMode('register'); clearMessages(); }}>
-            <Text style={styles.registerText}>회원가입하기 →</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.loginBtn} onPress={() => { setMode('login'); clearMessages(); }}>
-            <Text style={styles.loginText}>로그인하기</Text>
-          </TouchableOpacity>
+          <Button label="회원가입하기" fullWidth onPress={() => { setMode('register'); clearMessages(); }} />
+          <Button label="로그인하기" variant="secondary" fullWidth onPress={() => { setMode('login'); clearMessages(); }} />
         </View>
       </View>
     );
   }
 
-  // 회원가입 / 로그인 폼
+  const content = {
+    register: { title: '계정을 만들어요', sub: '이메일로 1분이면 가입할 수 있어요', cta: '가입하기', onSubmit: handleRegister },
+    login: { title: '다시 만나서 반가워요', sub: '이메일로 로그인해주세요', cta: '로그인', onSubmit: handleLogin },
+    forgot: { title: '비밀번호 찾기', sub: '가입한 이메일로 6자리 인증코드를 보내드려요', cta: '인증코드 받기', onSubmit: handleForgotPassword },
+    otp: { title: '인증코드 입력', sub: `${email}으로 보낸 6자리 코드를 입력해주세요`, cta: '확인', onSubmit: handleVerifyOtp },
+  }[mode];
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity style={styles.back} onPress={() => { setMode('select'); clearMessages(); }}>
-        <Text style={styles.backText}>← 뒤로</Text>
-      </TouchableOpacity>
-      <Text style={styles.title}>
-        {mode === 'register' ? '계정을 만들어요' : '다시 만나서 반가워요'}
-      </Text>
-      <Text style={styles.sub}>
-        {mode === 'register' ? '이메일로 가입해주세요' : '이메일로 로그인해주세요'}
-      </Text>
-      <View style={styles.form}>
-        {mode === 'register' && (
-          <View style={styles.inputWrap}>
-            <Text style={styles.label}>닉네임</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="사용할 닉네임 입력"
-              placeholderTextColor="#555"
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.base, paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <OnboardingNav step={mode === 'register' ? 1 : undefined} onBack={back} />
+
+      <ScrollView style={styles.flex} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{content.title}</Text>
+        <Text style={[type.bodyLarge, styles.sub, { color: colors.textSecondary }]}>{content.sub}</Text>
+
+        <View style={styles.form}>
+          {mode === 'register' && (
+            <TextField
+              label="닉네임"
+              placeholder="커뮤니티에서 쓸 이름"
               value={nickname}
               onChangeText={v => { setNickname(v); clearMessages(); }}
               returnKeyType="next"
               onSubmitEditing={() => emailRef.current?.focus()}
             />
+          )}
+          {mode !== 'otp' && (
+            <TextField
+              ref={emailRef}
+              label={mode === 'forgot' ? '이메일' : '이메일 또는 아이디'}
+              placeholder={mode === 'forgot' ? '가입한 이메일' : 'example@shingu.ac.kr'}
+              value={email}
+              onChangeText={v => { setEmail(v); clearMessages(); }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              returnKeyType={mode === 'forgot' ? 'done' : 'next'}
+              onSubmitEditing={mode === 'forgot' ? handleForgotPassword : () => passwordRef.current?.focus()}
+            />
+          )}
+          {(mode === 'register' || mode === 'login') && (
+            <TextField
+              ref={passwordRef}
+              label="비밀번호"
+              placeholder="6자 이상"
+              helper={mode === 'register' ? '6자 이상 입력해주세요' : undefined}
+              value={password}
+              onChangeText={v => { setPassword(v); clearMessages(); }}
+              secureTextEntry
+              returnKeyType="done"
+              onSubmitEditing={content.onSubmit}
+            />
+          )}
+          {mode === 'otp' && (
+            <TextField
+              label="인증코드"
+              placeholder="000000"
+              value={otpCode}
+              onChangeText={v => { setOtpCode(v.replace(/\D/g, '').slice(0, 6)); clearMessages(); }}
+              keyboardType="number-pad"
+              maxLength={6}
+              style={styles.otp}
+            />
+          )}
+        </View>
+
+        {errorMsg ? <Text style={[type.bodyMedium, { color: colors.danger }]}>{errorMsg}</Text> : null}
+        {successMsg ? <Text style={[type.labelLarge, { color: colors.success }]}>{successMsg}</Text> : null}
+
+        {mode === 'login' && (
+          <View style={styles.linkRow}>
+            <Button label="비밀번호를 잊으셨나요?" variant="ghost" size="M" onPress={() => { setMode('forgot'); clearMessages(); }} />
           </View>
         )}
-        <View style={styles.inputWrap}>
-          <Text style={styles.label}>이메일 또는 아이디</Text>
-          <TextInput
-            ref={emailRef}
-            style={styles.input}
-            placeholder="이메일 또는 아이디"
-            placeholderTextColor="#555"
-            value={email}
-            onChangeText={v => { setEmail(v); clearMessages(); }}
-            autoCapitalize="none"
-            returnKeyType="next"
-            onSubmitEditing={() => passwordRef.current?.focus()}
-          />
-        </View>
-        <View style={styles.inputWrap}>
-          <Text style={styles.label}>비밀번호</Text>
-          <TextInput
-            ref={passwordRef}
-            style={styles.input}
-            placeholder="비밀번호 입력 (6자 이상)"
-            placeholderTextColor="#555"
-            value={password}
-            onChangeText={v => { setPassword(v); clearMessages(); }}
-            secureTextEntry
-            returnKeyType="done"
-            onSubmitEditing={mode === 'register' ? handleRegister : handleLogin}
-          />
-        </View>
+        {mode === 'otp' && (
+          <View style={styles.linkRow}>
+            <Button label="코드 다시 보내기" variant="ghost" size="M" onPress={handleForgotPassword} />
+          </View>
+        )}
+      </ScrollView>
+
+      <View style={styles.bottom}>
+        <Button label={content.cta} fullWidth loading={loading} onPress={content.onSubmit} />
       </View>
-
-      {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-      {successMsg ? <Text style={styles.successText}>{successMsg}</Text> : null}
-
-      <TouchableOpacity
-        style={[styles.registerBtn, loading && { opacity: 0.6 }]}
-        onPress={mode === 'register' ? handleRegister : handleLogin}
-        disabled={loading}>
-        {loading
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.registerText}>{mode === 'register' ? '가입하기 →' : '로그인 →'}</Text>
-        }
-      </TouchableOpacity>
-      {mode === 'login' && (
-        <TouchableOpacity style={styles.forgotBtn} onPress={() => { setMode('forgot'); clearMessages(); }}>
-          <Text style={styles.forgotText}>비밀번호를 잊으셨나요?</Text>
-        </TouchableOpacity>
-      )}
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1, backgroundColor: '#07070d',
-    paddingHorizontal: 24, paddingTop: 60,
-    justifyContent: 'center',
-  },
-  center: { alignItems: 'center', marginBottom: 60 },
-  logo: { fontSize: 32, fontWeight: '900', color: '#7c6fff', marginBottom: 16 },
-  back: { position: 'absolute', top: 60, left: 24 },
-  backText: { color: '#888', fontSize: 14 },
-  title: { fontSize: 28, fontWeight: '900', color: '#fff', marginBottom: 8, textAlign: 'center' },
-  sub: { fontSize: 14, color: '#888', marginBottom: 40, textAlign: 'center' },
-  form: { gap: 16, marginBottom: 16 },
-  inputWrap: { gap: 8 },
-  label: { fontSize: 13, color: '#888', fontWeight: '600' },
-  input: {
-    backgroundColor: '#13131a', borderRadius: 14,
-    paddingHorizontal: 16, paddingVertical: 14,
-    color: '#fff', fontSize: 15,
-    borderWidth: 1, borderColor: '#2a2a40',
-  },
-  btnGroup: { gap: 12 },
-  registerBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 28,
-    height: 56, alignItems: 'center', justifyContent: 'center', marginTop: 16,
-  },
-  registerText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  loginBtn: {
-    backgroundColor: '#13131a', borderRadius: 28,
-    height: 56, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#2a2a40',
-  },
-  loginText: { color: '#aaa', fontSize: 16, fontWeight: '700' },
-  forgotBtn: { alignItems: 'center', marginTop: 16 },
-  forgotText: { color: '#7c6fff', fontSize: 13 },
-  errorText: { fontSize: 13, color: '#ff6b6b', textAlign: 'center', marginBottom: 8 },
-  successText: { fontSize: 15, color: '#3eeea0', textAlign: 'center', fontWeight: '700', marginBottom: 8 },
-});
+const useStyles = makeStyles(() => ({
+  container: { flex: 1 },
+  flex: { flex: 1 },
+  selectBody: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, gap: 8 },
+  logo: { fontSize: 32, lineHeight: 40, fontWeight: '700', marginBottom: 8 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
+  sub: { marginTop: 8, marginBottom: 32 },
+  body: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 24, gap: 0 },
+  form: { gap: 16, marginBottom: 12 },
+  otp: { letterSpacing: 8, fontSize: 24, textAlign: 'center' },
+  linkRow: { alignItems: 'flex-start', marginLeft: -16 },
+  btnGroup: { paddingHorizontal: 20, gap: 12 },
+  bottom: { paddingHorizontal: 20, paddingTop: 8 },
+}));

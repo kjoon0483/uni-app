@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import * as ImagePicker from 'expo-image-picker';
 import { geminiVision } from '@/lib/gemini';
 import { router } from 'expo-router';
@@ -23,6 +25,8 @@ type ParsedClass = {
 const CLASS_COLORS = ['#7c6fff', '#3eeea0', '#ff6b6b', '#f59e0b', '#06b6d4', '#ff6b8a', '#a78bfa'];
 
 export default function TimetableOnboardingScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [image, setImage] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -126,7 +130,7 @@ export default function TimetableOnboardingScreen() {
           >
             {loading ? (
               <View style={styles.loadingRow}>
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.onAccent} size="small" />
                 <Text style={styles.analyzeBtnText}>Gemini AI 분석 중...</Text>
               </View>
             ) : (
@@ -191,81 +195,81 @@ export default function TimetableOnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
+const useStyles = makeStyles((c) => ({
+  container: { flex: 1, backgroundColor: c.base },
   content: { paddingHorizontal: 24, paddingTop: 55, paddingBottom: 40 },
 
   backBtn: { marginBottom: 20 },
-  backText: { color: '#555', fontSize: 14 },
+  backText: { color: c.textTertiary, fontSize: 14 },
 
   stepRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
-  stepDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#2a2a40' },
-  stepDotActive: { backgroundColor: '#7c6fff' },
+  stepDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: c.raised },
+  stepDotActive: { backgroundColor: c.accentFill },
 
-  title: { fontSize: 24, fontWeight: '900', color: '#fff', marginBottom: 8 },
-  sub: { fontSize: 14, color: '#888', lineHeight: 22, marginBottom: 24 },
+  title: { fontSize: 24, fontWeight: '700', color: c.textPrimary, marginBottom: 8 },
+  sub: { fontSize: 14, color: c.textSecondary, lineHeight: 22, marginBottom: 24 },
 
   uploadArea: {
     height: 200, borderRadius: 16,
-    borderWidth: 2, borderColor: '#2a2a40', borderStyle: 'dashed',
-    backgroundColor: '#13131a',
+    borderWidth: 2, borderColor: c.borderDefault, borderStyle: 'dashed',
+    backgroundColor: c.surface,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 16, overflow: 'hidden',
   },
-  uploadAreaFilled: { borderStyle: 'solid', borderColor: '#7c6fff' },
+  uploadAreaFilled: { borderStyle: 'solid', borderColor: c.accentFill },
   uploadedImage: { width: '100%', height: '100%' },
   uploadPlaceholder: { alignItems: 'center' },
   uploadIcon: { fontSize: 40, marginBottom: 12 },
-  uploadText: { fontSize: 16, fontWeight: '700', color: '#eee', marginBottom: 6 },
-  uploadSub: { fontSize: 12, color: '#555' },
+  uploadText: { fontSize: 16, fontWeight: '700', color: c.textPrimary, marginBottom: 6 },
+  uploadSub: { fontSize: 12, color: c.textTertiary },
 
   analyzeBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 14,
+    backgroundColor: c.accentFill, borderRadius: 14,
     height: 50, alignItems: 'center', justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#7c6fff', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
   },
   analyzeBtnLoading: { opacity: 0.8 },
-  analyzeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700', marginLeft: 8 },
+  analyzeBtnText: { color: c.onAccent, fontSize: 15, fontWeight: '700', marginLeft: 8 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
-  errorText: { color: '#ff6b6b', fontSize: 13, textAlign: 'center', marginBottom: 12 },
+  errorText: { color: c.danger, fontSize: 13, textAlign: 'center', marginBottom: 12 },
 
   resultArea: { marginBottom: 20 },
   resultHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 12,
   },
-  resultTitle: { fontSize: 15, fontWeight: '800', color: '#3eeea0' },
-  resultRetry: { fontSize: 12, color: '#7c6fff' },
+  resultTitle: { fontSize: 15, fontWeight: '700', color: c.success },
+  resultRetry: { fontSize: 12, color: c.accentText },
 
   classCard: {
-    backgroundColor: '#13131a', borderRadius: 12,
-    borderWidth: 1, borderColor: '#2a2a40', borderLeftWidth: 4,
+    backgroundColor: c.surface, borderRadius: 12,
+    borderWidth: 1, borderColor: c.borderDefault, borderLeftWidth: 4,
     padding: 14, marginBottom: 8,
   },
   classLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   classColorDot: { width: 10, height: 10, borderRadius: 5 },
-  className: { fontSize: 14, fontWeight: '700', color: '#eee', marginBottom: 3 },
-  classDetail: { fontSize: 12, color: '#888' },
-  classRoom: { fontSize: 11, color: '#555', marginTop: 2 },
+  className: { fontSize: 14, fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
+  classDetail: { fontSize: 12, color: c.textSecondary },
+  classRoom: { fontSize: 11, color: c.textTertiary, marginTop: 2 },
 
-  resultNote: { fontSize: 11, color: '#444', marginTop: 8, lineHeight: 16 },
+  resultNote: { fontSize: 12, color: c.textTertiary, marginTop: 8, lineHeight: 16 },
 
   bottomRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   skipBtn: {
     flex: 1, height: 50, borderRadius: 14,
-    borderWidth: 1, borderColor: '#2a2a40',
+    borderWidth: 1, borderColor: c.borderDefault,
     alignItems: 'center', justifyContent: 'center',
   },
-  skipBtnText: { color: '#555', fontSize: 14, fontWeight: '600' },
+  skipBtnText: { color: c.textTertiary, fontSize: 14, fontWeight: '500' },
   nextBtn: {
     flex: 1, height: 50, borderRadius: 14,
-    backgroundColor: '#7c6fff',
+    backgroundColor: c.accentFill,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#7c6fff', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
   },
-  nextBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-});
+  nextBtnText: { color: c.onAccent, fontSize: 15, fontWeight: '700' },
+}));

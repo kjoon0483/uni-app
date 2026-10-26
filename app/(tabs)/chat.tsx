@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -12,6 +14,10 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { startOrOpenChat } from '../../lib/chat';
+import { Feather } from '@expo/vector-icons';
+import Avatar from '@/components/ui/Avatar';
+import IconButton from '@/components/ui/IconButton';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 
 type Room = {
   id: string;
@@ -40,6 +46,8 @@ type SearchProfile = {
 };
 
 export default function ChatListScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingReceived, setPendingReceived] = useState<Friend[]>([]);
@@ -255,35 +263,27 @@ export default function ChatListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>채팅 ✦</Text>
-          <Text style={styles.subtitle}>친구와 1:1 대화</Text>
-        </View>
-        <View style={styles.headerBtns}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setSearchModal(true)}>
-            <Text style={styles.headerBtnText}>🔍 찾기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setFriendModal(true)}>
-            <Text style={styles.headerBtnText}>👥 친구</Text>
-            {totalPending > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{totalPending}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ScreenHeader
+        title="채팅"
+        actions={
+          <>
+            <IconButton icon="search" accessibilityLabel="사용자 찾기" onPress={() => setSearchModal(true)} />
+            <IconButton icon="users" accessibilityLabel={`친구 목록${totalPending ? `, 받은 요청 ${totalPending}개` : ''}`}
+              badge={totalPending} onPress={() => setFriendModal(true)} />
+          </>
+        }
+      />
 
       {/* 채팅방 목록 */}
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color="#7c6fff" /></View>
+        <View style={styles.center}><ActivityIndicator color={colors.accentText} /></View>
       ) : rooms.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon}>💬</Text>
-          <Text style={styles.emptyTitle}>채팅이 없어요</Text>
-          <Text style={styles.emptySubtitle}>🔍 찾기로 사용자를 검색하거나{'\n'}커뮤니티에서 프로필을 눌러 채팅을 시작하세요</Text>
+          <View style={styles.emptyIconWrap}>
+            <Feather name="message-circle" size={28} color={colors.accentText} />
+          </View>
+          <Text style={styles.emptyTitle}>아직 채팅이 없어요</Text>
+          <Text style={styles.emptySubtitle}>위의 검색으로 사용자를 찾거나{'\n'}커뮤니티에서 프로필을 눌러 대화를 시작하세요</Text>
         </View>
       ) : (
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -292,18 +292,14 @@ export default function ChatListScreen() {
               key={room.id}
               style={styles.roomCard}
               onPress={() => router.push({ pathname: '/chat/[roomId]' as any, params: { roomId: room.id } })}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {(getPartnerName(room) || '?')[0].toUpperCase()}
-                </Text>
-              </View>
+              <Avatar name={getPartnerName(room) || '?'} size={48} />
               <View style={styles.roomInfo}>
                 <View style={styles.roomTop}>
                   <Text style={styles.partnerName}>{getPartnerName(room) || '알 수 없음'}</Text>
                   <Text style={styles.timeText}>{formatTime(room.last_message_at)}</Text>
                 </View>
                 <View style={styles.roomBottom}>
-                  <Text style={styles.lastMessage} numberOfLines={1}>
+                  <Text style={[styles.lastMessage, (room.unread_count ?? 0) > 0 && { color: colors.textPrimary }]} numberOfLines={1}>
                     {room.last_message || '메시지 없음'}
                   </Text>
                   {(room.unread_count ?? 0) > 0 && (
@@ -327,10 +323,10 @@ export default function ChatListScreen() {
               <Text style={styles.modalTitle}>친구 목록</Text>
               <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                 <TouchableOpacity onPress={() => myId && loadFriends(myId)}>
-                  <Text style={{ fontSize: 16, color: '#7c6fff' }}>↻</Text>
+                  <Feather name="refresh-cw" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setFriendModal(false)}>
-                  <Text style={styles.modalClose}>✕</Text>
+                  <Feather name="x" size={22} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -388,9 +384,9 @@ export default function ChatListScreen() {
                 <Text style={styles.sectionTitle}>친구 {friends.length}명</Text>
                 {friends.length === 0 ? (
                   <View style={styles.emptyFriends}>
-                    <Text style={styles.emptyIcon}>👥</Text>
+                    <View style={styles.emptyIconWrap}><Feather name="users" size={28} color={colors.accentText} /></View>
                     <Text style={styles.emptyTitle}>아직 친구가 없어요</Text>
-                    <Text style={styles.emptySubtitle}>🔍 찾기로 사용자를 검색해 친구 추가하세요</Text>
+                    <Text style={styles.emptySubtitle}>검색으로 사용자를 찾아 친구를 추가하세요</Text>
                   </View>
                 ) : (
                   friends.map(f => (
@@ -422,22 +418,22 @@ export default function ChatListScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>사용자 찾기</Text>
               <TouchableOpacity onPress={() => { setSearchModal(false); setSearchQuery(''); setSearchResults([]); }}>
-                <Text style={styles.modalClose}>✕</Text>
+                <Feather name="x" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalSearchBox}>
-              <Text style={{ fontSize: 15, marginRight: 8 }}>🔍</Text>
+              <Feather name="search" size={18} color={colors.textTertiary} style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.modalSearchInput}
                 placeholder="닉네임으로 검색..."
-                placeholderTextColor="#44445a"
+                placeholderTextColor={colors.textTertiary}
                 value={searchQuery}
                 onChangeText={q => { setSearchQuery(q); searchUsers(q); }}
                 autoFocus
               />
             </View>
             {searching ? (
-              <ActivityIndicator color="#7c6fff" style={{ marginTop: 24 }} />
+              <ActivityIndicator color={colors.accentText} style={{ marginTop: 24 }} />
             ) : (
               <ScrollView style={{ maxHeight: 320 }}>
                 {searchResults.map(p => (
@@ -451,12 +447,12 @@ export default function ChatListScreen() {
                     </View>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       {friendStatuses[p.id] === 'accepted' ? (
-                        <View style={[styles.tagBtn, { borderColor: '#3eeea0' }]}>
-                          <Text style={[styles.tagBtnText, { color: '#3eeea0' }]}>✓ 친구</Text>
+                        <View style={[styles.tagBtn, { borderColor: colors.success }]}>
+                          <Text style={[styles.tagBtnText, { color: colors.success }]}>✓ 친구</Text>
                         </View>
                       ) : friendStatuses[p.id] === 'pending_sent' ? (
-                        <View style={[styles.tagBtn, { borderColor: '#666' }]}>
-                          <Text style={[styles.tagBtnText, { color: '#888' }]}>요청 중</Text>
+                        <View style={[styles.tagBtn, { borderColor: colors.borderStrong }]}>
+                          <Text style={[styles.tagBtnText, { color: colors.textSecondary }]}>요청 중</Text>
                         </View>
                       ) : (
                         <TouchableOpacity style={styles.tagBtn} onPress={() => sendFriendRequest(p.id)}>
@@ -481,123 +477,122 @@ export default function ChatListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
+const useStyles = makeStyles((c) => ({
+  container: { flex: 1, backgroundColor: c.base },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 55, paddingBottom: 12,
   },
-  title: { fontSize: 24, fontWeight: '900', color: '#a78bfa' },
-  subtitle: { fontSize: 12, color: '#555', marginTop: 3 },
+  title: { fontSize: 24, fontWeight: '700', color: c.accentText },
+  subtitle: { fontSize: 12, color: c.textTertiary, marginTop: 3 },
   headerBtns: { flexDirection: 'row', gap: 8 },
   headerBtn: {
-    backgroundColor: '#13131a', borderRadius: 12,
+    backgroundColor: c.surface, borderRadius: 12,
     paddingHorizontal: 12, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#2a2a40',
+    borderWidth: 1, borderColor: c.borderDefault,
     flexDirection: 'row', alignItems: 'center', gap: 4,
   },
-  headerBtnText: { fontSize: 12, color: '#7c6fff', fontWeight: '700' },
+  headerBtnText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
   badge: {
-    backgroundColor: '#7c6fff', borderRadius: 8,
+    backgroundColor: c.accentFill, borderRadius: 8,
     minWidth: 16, height: 16,
     paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center',
   },
-  badgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
+  badgeText: { fontSize: 12, color: c.onAccent, fontWeight: '700' },
 
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 24 },
-  emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#eee' },
-  emptySubtitle: { fontSize: 13, color: '#666', textAlign: 'center', lineHeight: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 6, padding: 24 },
+  emptyIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: c.accentSubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  emptyTitle: { fontSize: 17, lineHeight: 24, fontWeight: '700', color: c.textPrimary },
+  emptySubtitle: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
   emptyFriends: { alignItems: 'center', paddingVertical: 32, gap: 10 },
 
   content: { flex: 1 },
   section: { paddingHorizontal: 4, paddingTop: 20 },
-  sectionTitle: { fontSize: 11, fontWeight: '700', color: '#666', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: c.textTertiary, marginBottom: 10 },
 
   roomCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: '#13131a',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20, paddingVertical: 12,
   },
   friendCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1a1a2e',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.borderDefault,
   },
   avatar: {
     width: 50, height: 50, borderRadius: 25,
-    backgroundColor: '#7c6fff22', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: '#7c6fff44',
+    backgroundColor: c.accentSubtle, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: c.accentSubtle,
   },
   friendAvatar: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#7c6fff22', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: '#7c6fff44',
+    backgroundColor: c.accentSubtle, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: c.accentSubtle,
   },
-  avatarText: { fontSize: 16, fontWeight: '700', color: '#7c6fff' },
+  avatarText: { fontSize: 16, fontWeight: '700', color: c.accentText },
   roomInfo: { flex: 1 },
   friendInfo: { flex: 1 },
-  roomTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  partnerName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#eee' },
-  friendName: { fontSize: 14, fontWeight: '700', color: '#eee', marginBottom: 2 },
-  friendSchool: { fontSize: 11, color: '#666' },
-  timeText: { fontSize: 11, color: '#555' },
-  roomBottom: { flexDirection: 'row', alignItems: 'center' },
-  lastMessage: { flex: 1, fontSize: 13, color: '#777' },
+  roomTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  partnerName: { flex: 1, fontSize: 16, lineHeight: 22, fontWeight: '700', color: c.textPrimary },
+  friendName: { fontSize: 14, fontWeight: '700', color: c.textPrimary, marginBottom: 2 },
+  friendSchool: { fontSize: 12, color: c.textTertiary },
+  timeText: { fontSize: 12, color: c.textTertiary },
+  roomBottom: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  lastMessage: { flex: 1, fontSize: 14, lineHeight: 20, color: c.textSecondary },
   unreadBadge: {
-    backgroundColor: '#7c6fff', borderRadius: 10,
+    backgroundColor: c.accentFill, borderRadius: 10,
     minWidth: 20, height: 20,
     paddingHorizontal: 5, justifyContent: 'center', alignItems: 'center',
   },
-  unreadText: { fontSize: 11, color: '#fff', fontWeight: '700' },
+  unreadText: { fontSize: 12, color: c.onAccent, fontWeight: '700' },
 
   requestBtns: { flexDirection: 'row', gap: 6 },
   acceptBtn: {
-    backgroundColor: '#7c6fff', borderRadius: 10,
+    backgroundColor: c.accentFill, borderRadius: 10,
     paddingHorizontal: 10, paddingVertical: 6,
   },
-  acceptBtnText: { fontSize: 12, color: '#fff', fontWeight: '700' },
+  acceptBtnText: { fontSize: 12, color: c.onAccent, fontWeight: '700' },
   declineBtn: {
-    backgroundColor: '#1a1a2e', borderRadius: 10,
+    backgroundColor: c.surface, borderRadius: 10,
     paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#2a2a40',
+    borderWidth: 1, borderColor: c.borderDefault,
   },
-  declineBtnText: { fontSize: 12, color: '#888', fontWeight: '700' },
+  declineBtnText: { fontSize: 12, color: c.textSecondary, fontWeight: '700' },
   cancelBtn: {
-    backgroundColor: '#1a1a2e', borderRadius: 10,
+    backgroundColor: c.surface, borderRadius: 10,
     paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#444',
+    borderWidth: 1, borderColor: c.borderStrong,
   },
-  cancelBtnText: { fontSize: 12, color: '#888', fontWeight: '700' },
+  cancelBtnText: { fontSize: 12, color: c.textSecondary, fontWeight: '700' },
   chatFriendBtn: {
-    backgroundColor: '#1a1a2e', borderRadius: 10,
+    backgroundColor: c.surface, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#7c6fff44',
+    borderWidth: 1, borderColor: c.accentSubtle,
   },
-  chatFriendBtnText: { fontSize: 12, color: '#7c6fff', fontWeight: '700' },
+  chatFriendBtnText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: c.overlay, justifyContent: 'flex-end' },
   modalCard: {
-    backgroundColor: '#13131a', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, paddingBottom: 40,
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '900', color: '#eee' },
-  modalClose: { fontSize: 18, color: '#666' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+  modalClose: { fontSize: 18, color: c.textTertiary },
   modalSearchBox: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#0d0d16', borderRadius: 14,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.base, borderRadius: 14,
+    borderWidth: 1, borderColor: c.borderDefault,
     paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16,
   },
-  modalSearchInput: { flex: 1, color: '#eee', fontSize: 14 },
+  modalSearchInput: { flex: 1, color: c.textPrimary, fontSize: 14 },
   searchResultItem: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1a1a2e',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.borderDefault,
   },
-  noResult: { textAlign: 'center', color: '#555', paddingVertical: 24, fontSize: 13 },
+  noResult: { textAlign: 'center', color: c.textTertiary, paddingVertical: 24, fontSize: 13 },
   tagBtn: {
     borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#7c6fff44', backgroundColor: '#1a1a2e',
+    borderWidth: 1, borderColor: c.accentSubtle, backgroundColor: c.surface,
   },
-  tagBtnText: { fontSize: 11, color: '#7c6fff', fontWeight: '700' },
-});
+  tagBtnText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
+}));

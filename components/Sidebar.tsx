@@ -1,3 +1,4 @@
+import { makeStyles } from '@/lib/makeStyles';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -21,6 +22,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ visible, onClose }: SidebarProps) {
+  const styles = useStyles();
   const { colors, mode, setMode } = useTheme();
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(PANEL_W)).current;
@@ -131,7 +133,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
             {isAdmin && (
               <TouchableOpacity style={styles.navItem} onPress={() => { onClose(); router.push('/admin' as any); }}>
                 <Text style={styles.navIcon}>⚙️</Text>
-                <Text style={[styles.navText, { color: '#7c6fff' }]}>관리자 페이지</Text>
+                <Text style={[styles.navText, { color: colors.accentText }]}>관리자 페이지</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -144,12 +146,12 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                 style={[
                   styles.themeBtn,
                   { backgroundColor: colors.card, borderColor: colors.border },
-                  mode === 'dark' && { backgroundColor: '#7c6fff', borderColor: '#7c6fff' },
+                  mode === 'dark' && { backgroundColor: colors.accentFill, borderColor: colors.accentFill },
                 ]}
                 onPress={() => setMode('dark')}
                 activeOpacity={0.75}>
                 <Text style={{ fontSize: 16 }}>🌙</Text>
-                <Text style={[styles.themeBtnLabel, { color: mode === 'dark' ? '#fff' : colors.subText }]}>
+                <Text style={[styles.themeBtnLabel, { color: mode === 'dark' ? colors.onAccent : colors.subText }]}>
                   다크
                 </Text>
               </TouchableOpacity>
@@ -157,12 +159,12 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                 style={[
                   styles.themeBtn,
                   { backgroundColor: colors.card, borderColor: colors.border },
-                  mode === 'light' && { backgroundColor: '#7c6fff', borderColor: '#7c6fff' },
+                  mode === 'light' && { backgroundColor: colors.accentFill, borderColor: colors.accentFill },
                 ]}
                 onPress={() => setMode('light')}
                 activeOpacity={0.75}>
                 <Text style={{ fontSize: 16 }}>☀️</Text>
-                <Text style={[styles.themeBtnLabel, { color: mode === 'light' ? '#fff' : colors.subText }]}>
+                <Text style={[styles.themeBtnLabel, { color: mode === 'light' ? colors.onAccent : colors.subText }]}>
                   라이트
                 </Text>
               </TouchableOpacity>
@@ -176,7 +178,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
 
           {/* 로그아웃 */}
           <TouchableOpacity
-            style={[styles.logoutBtn, { borderColor: '#ff4d6d44' }]}
+            style={[styles.logoutBtn, { borderColor: colors.dangerSubtle }]}
             onPress={handleLogout}
             disabled={logoutLoading}
             activeOpacity={0.75}>
@@ -190,7 +192,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   overlay: { backgroundColor: 'rgba(0,0,0,0.48)' },
   panel: {
     position: 'absolute', right: 0, top: 0, bottom: 0,
@@ -213,23 +215,23 @@ const styles = StyleSheet.create({
   },
   avatar: {
     width: 58, height: 58, borderRadius: 29,
-    backgroundColor: '#7c6fff',
+    backgroundColor: c.accentFill,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 10,
-    shadowColor: '#7c6fff',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 6,
   },
-  avatarText: { fontSize: 22, fontWeight: '900', color: '#fff' },
-  userName: { fontSize: 15, fontWeight: '800', marginBottom: 3 },
-  userEmail: { fontSize: 11, marginBottom: 10 },
+  avatarText: { fontSize: 22, fontWeight: '700', color: c.onAccent },
+  userName: { fontSize: 15, fontWeight: '700', marginBottom: 3 },
+  userEmail: { fontSize: 12, marginBottom: 10 },
   schoolBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  schoolBadgeText: { fontSize: 11, fontWeight: '700' },
+  schoolBadgeText: { fontSize: 12, fontWeight: '700' },
   section: { borderBottomWidth: 1, paddingBottom: 16, marginBottom: 16 },
   sectionLabel: {
-    fontSize: 10, fontWeight: '700',
+    fontSize: 12, fontWeight: '700',
     letterSpacing: 1.1, textTransform: 'uppercase',
     marginBottom: 10,
   },
@@ -242,11 +244,11 @@ const styles = StyleSheet.create({
   themeBtnLabel: { fontSize: 12, fontWeight: '700' },
   navItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
   navIcon: { fontSize: 16, width: 24 },
-  navText: { fontSize: 14, fontWeight: '600' },
-  version: { fontSize: 11, textAlign: 'center', marginBottom: 12 },
+  navText: { fontSize: 14, fontWeight: '500' },
+  version: { fontSize: 12, textAlign: 'center', marginBottom: 12 },
   logoutBtn: {
     borderWidth: 1, borderRadius: 14,
     height: 48, alignItems: 'center', justifyContent: 'center',
   },
-  logoutText: { color: '#ff4d6d', fontSize: 14, fontWeight: '700' },
-});
+  logoutText: { color: c.danger, fontSize: 14, fontWeight: '700' },
+}));

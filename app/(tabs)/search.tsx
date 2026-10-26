@@ -1,3 +1,5 @@
+import { useTheme } from '@/lib/ThemeContext';
+import { makeStyles } from '@/lib/makeStyles';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,6 +30,8 @@ type Post = {
 type SearchMode = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 
 export default function SearchScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [posts, setPosts] = useState<Post[]>([]);
@@ -133,7 +137,7 @@ export default function SearchScreen() {
             value={query}
             onChangeText={handleQueryChange}
             placeholder="교수님, 맛집, 강의 뭐든지..."
-            placeholderTextColor="#44445a"
+            placeholderTextColor={colors.textTertiary}
             returnKeyType="search"
             onSubmitEditing={() => runSearch(query, selectedCategory)}
           />
@@ -168,7 +172,7 @@ export default function SearchScreen() {
       {/* Content area */}
       {mode === 'loading' && (
         <View style={styles.center}>
-          <ActivityIndicator color="#7c6fff" size="large" />
+          <ActivityIndicator color={colors.accentText} size="large" />
           <Text style={styles.loadingText}>AI가 검색 중...</Text>
         </View>
       )}
@@ -277,106 +281,106 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07070d' },
+const useStyles = makeStyles((c) => ({
+  container: { flex: 1, backgroundColor: c.base },
   header: { paddingHorizontal: 20, paddingTop: 55, paddingBottom: 12 },
-  title: { fontSize: 24, fontWeight: '900', color: '#a78bfa' },
-  subtitle: { fontSize: 12, color: '#555', marginTop: 3 },
+  title: { fontSize: 24, fontWeight: '700', color: c.accentText },
+  subtitle: { fontSize: 12, color: c.textTertiary, marginTop: 3 },
 
   searchRow: { paddingHorizontal: 16, marginBottom: 12 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#13131a', borderRadius: 16,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: c.borderDefault,
     paddingHorizontal: 14, paddingVertical: 12,
   },
   searchIcon: { fontSize: 16, marginRight: 10 },
-  searchInput: { flex: 1, color: '#eee', fontSize: 14 },
-  clearBtn: { color: '#555', fontSize: 14, paddingLeft: 8 },
+  searchInput: { flex: 1, color: c.textPrimary, fontSize: 14 },
+  clearBtn: { color: c.textTertiary, fontSize: 14, paddingLeft: 8 },
 
   categoryScroll: { flexGrow: 0, marginBottom: 12 },
   categoryChip: {
     paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, backgroundColor: '#13131a',
-    borderWidth: 1, borderColor: '#2a2a40',
+    borderRadius: 20, backgroundColor: c.surface,
+    borderWidth: 1, borderColor: c.borderDefault,
   },
-  categoryChipActive: { backgroundColor: '#7c6fff', borderColor: '#7c6fff' },
-  categoryText: { fontSize: 12, color: '#888', fontWeight: '600' },
-  categoryTextActive: { color: '#fff' },
+  categoryChipActive: { backgroundColor: c.accentFill, borderColor: c.accentFill },
+  categoryText: { fontSize: 12, color: c.textSecondary, fontWeight: '500' },
+  categoryTextActive: { color: c.onAccent },
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  loadingText: { color: '#7c6fff', fontSize: 14, marginTop: 8 },
+  loadingText: { color: c.accentText, fontSize: 14, marginTop: 8 },
   emptyIcon: { fontSize: 40 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#eee' },
-  emptySubtitle: { fontSize: 13, color: '#666' },
-  retryText: { color: '#7c6fff', fontSize: 14, fontWeight: '700' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: c.textPrimary },
+  emptySubtitle: { fontSize: 13, color: c.textTertiary },
+  retryText: { color: c.accentText, fontSize: 14, fontWeight: '700' },
 
   content: { flex: 1, paddingHorizontal: 16 },
   resultHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginBottom: 12, marginTop: 4,
   },
-  resultCount: { fontSize: 13, color: '#888' },
+  resultCount: { fontSize: 13, color: c.textSecondary },
   aiBadge: {
-    backgroundColor: '#1a1a2e', borderRadius: 10,
+    backgroundColor: c.surface, borderRadius: 10,
     paddingHorizontal: 8, paddingVertical: 3,
-    borderWidth: 1, borderColor: '#7c6fff',
+    borderWidth: 1, borderColor: c.accentFill,
   },
-  aiBadgeText: { fontSize: 10, color: '#7c6fff', fontWeight: '700' },
+  aiBadgeText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
 
   postCard: {
-    backgroundColor: '#13131a', borderRadius: 14,
-    borderWidth: 1, borderColor: '#1e1e30',
+    backgroundColor: c.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: c.borderDefault,
     padding: 14, marginBottom: 10,
   },
   postTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   catBadge: {
-    backgroundColor: '#1a1a2e', borderRadius: 8,
+    backgroundColor: c.surface, borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  catBadgeText: { fontSize: 10, color: '#7c6fff', fontWeight: '700' },
-  similarityText: { fontSize: 10, color: '#555' },
-  postTitle: { fontSize: 14, fontWeight: '700', color: '#eee', marginBottom: 5 },
-  postContent: { fontSize: 12, color: '#888', lineHeight: 18, marginBottom: 10 },
+  catBadgeText: { fontSize: 12, color: c.accentText, fontWeight: '700' },
+  similarityText: { fontSize: 12, color: c.textTertiary },
+  postTitle: { fontSize: 14, fontWeight: '700', color: c.textPrimary, marginBottom: 5 },
+  postContent: { fontSize: 12, color: c.textSecondary, lineHeight: 18, marginBottom: 10 },
   postMeta: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  metaText: { fontSize: 11, color: '#555' },
-  metaDate: { fontSize: 11, color: '#444', marginLeft: 'auto' },
+  metaText: { fontSize: 12, color: c.textTertiary },
+  metaDate: { fontSize: 12, color: c.textTertiary, marginLeft: 'auto' },
 
   section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 12,
   },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#eee' },
-  sectionAction: { fontSize: 12, color: '#7c6fff' },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: c.textPrimary },
+  sectionAction: { fontSize: 12, color: c.accentText },
 
   recentItem: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a2e',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.borderDefault,
   },
   recentIcon: { fontSize: 14, marginRight: 10 },
-  recentText: { flex: 1, fontSize: 13, color: '#ccc' },
-  recentDeleteText: { fontSize: 12, color: '#44445a', padding: 4 },
+  recentText: { flex: 1, fontSize: 13, color: c.textSecondary },
+  recentDeleteText: { fontSize: 12, color: c.textTertiary, padding: 4 },
 
   trendingItem: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a2e',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.borderDefault,
   },
-  trendingRank: { fontSize: 13, fontWeight: '900', color: '#7c6fff', width: 24 },
-  trendingTag: { flex: 1, fontSize: 13, color: '#ccc' },
+  trendingRank: { fontSize: 13, fontWeight: '700', color: c.accentText, width: 24 },
+  trendingTag: { flex: 1, fontSize: 13, color: c.textSecondary },
 
   aiCard: {
-    backgroundColor: '#13131a', borderRadius: 16,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: c.borderDefault,
     padding: 16, marginBottom: 32,
   },
-  aiCardLabel: { fontSize: 10, color: '#7c6fff', fontWeight: '700', marginBottom: 6 },
-  aiCardTitle: { fontSize: 13, color: '#eee', fontWeight: '600', marginBottom: 12 },
+  aiCardLabel: { fontSize: 12, color: c.accentText, fontWeight: '700', marginBottom: 6 },
+  aiCardTitle: { fontSize: 13, color: c.textPrimary, fontWeight: '500', marginBottom: 12 },
   aiPillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   aiPill: {
-    backgroundColor: '#0d0d16', borderRadius: 12,
-    borderWidth: 1, borderColor: '#2a2a40',
+    backgroundColor: c.base, borderRadius: 12,
+    borderWidth: 1, borderColor: c.borderDefault,
     paddingHorizontal: 12, paddingVertical: 7,
   },
-  aiPillText: { fontSize: 12, color: '#a78bfa' },
-});
+  aiPillText: { fontSize: 12, color: c.accentText },
+}));
